@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { matchPath, useLocation } from "react-router-dom";
-import { Menu, PanelLeft, PanelLeftClose } from "lucide-react";
+import { ChevronLeft, Menu } from "lucide-react";
 import { AlertsMenu } from "@/layouts/AlertsMenu";
 import { NAV_ITEMS } from "@/layouts/navigation";
 import { cn } from "@/lib/utils";
 
 const ghostButton =
-  "p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground active:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function usePageTitle() {
   const { pathname } = useLocation();
@@ -17,7 +17,7 @@ function usePageTitle() {
 export function Header({ collapsed, onToggleCollapsed, sidebarOpen, onOpenSidebar }) {
   const title = usePageTitle();
   const toggleLabel = collapsed ? "Afficher le menu latéral" : "Masquer le menu latéral";
-  const ToggleIcon = collapsed ? PanelLeft : PanelLeftClose;
+  const ToggleIcon = collapsed ? Menu : ChevronLeft;
 
   useEffect(() => {
     document.title = `${title} · Compta MVP`;
@@ -36,7 +36,7 @@ export function Header({ collapsed, onToggleCollapsed, sidebarOpen, onOpenSideba
         onClick={onOpenSidebar}
         aria-controls="app-sidebar"
         aria-expanded={sidebarOpen}
-        className={cn(ghostButton, "-ml-2 lg:hidden")}
+        className={cn(ghostButton, "-ml-1 lg:hidden")}
       >
         <Menu className="size-5" aria-hidden="true" />
         <span className="sr-only">Ouvrir le menu</span>
@@ -47,7 +47,7 @@ export function Header({ collapsed, onToggleCollapsed, sidebarOpen, onOpenSideba
         aria-controls="app-sidebar"
         aria-expanded={!collapsed}
         title={toggleLabel}
-        className={cn(ghostButton, "-ml-2 hidden lg:inline-flex")}
+        className={cn(ghostButton, "-ml-1 hidden lg:inline-flex")}
       >
         <ToggleIcon className="size-5" aria-hidden="true" />
         <span className="sr-only">{toggleLabel}</span>

@@ -5,7 +5,7 @@ export const ACCOUNTING_ALERTS = [
     emoji: "⚠️",
     label: "3 Brouillons à corriger",
     tone: "warning",
-    to: "/saisie",
+    to: "/brouillons",
   },
   {
     id: "late-invoices",

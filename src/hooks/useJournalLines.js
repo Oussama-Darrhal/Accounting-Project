@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ACTIVE_DRAFT_ID_KEY,
+  DRAFT_STORAGE_KEY,
+  createDraftId,
+  ensureDraftsInitialized,
+  getActiveDraftId,
+  getDraft,
+  removeDraft,
+  setActiveDraftId,
+  upsertDraft,
+} from "@/lib/drafts";
 import { toCents } from "@/lib/utils";
 
-export const DRAFT_STORAGE_KEY = "saisie_comptable_draft";
+export { DRAFT_STORAGE_KEY };
 
 let lineSequence = 0;
 
@@ -18,34 +29,51 @@ export const hasAmount = (line) => toCents(line.debit) !== 0 || toCents(line.cre
 export const isLineBlank = (line) =>
   !line.date && !line.facture.trim() && !line.compte && !line.debit.trim() && !line.credit.trim();
 
-function readDraft() {
+function readActiveLines() {
+  ensureDraftsInitialized();
+  const activeId = getActiveDraftId();
+  const fromCollection = activeId ? getDraft(activeId) : null;
+  if (fromCollection?.lines?.length) return { id: activeId, lines: fromCollection.lines };
+
   try {
     const parsed = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY));
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    const fields = ["date", "facture", "compte", "debit", "credit", "tva"];
-    return parsed
-      .filter((line) => line && typeof line.id === "string")
-      .map((line) => {
-        const restored = { ...createEmptyLine(), id: line.id };
-        fields.forEach((field) => typeof line[field] === "string" && (restored[field] = line[field]));
-        return restored;
-      });
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const fields = ["date", "facture", "compte", "debit", "credit", "tva"];
+      const lines = parsed
+        .filter((line) => line && typeof line.id === "string")
+        .map((line) => {
+          const restored = { ...createEmptyLine(), id: line.id };
+          fields.forEach((field) => typeof line[field] === "string" && (restored[field] = line[field]));
+          return restored;
+        });
+      if (lines.length) return { id: activeId ?? createDraftId(), lines };
+    }
   } catch {
-    return null;
+    /* ignore a corrupted live key */
   }
+
+  return { id: activeId ?? createDraftId(), lines: [createEmptyLine()] };
 }
 
 export function useJournalLines() {
-  const [journalLines, setJournalLines] = useState(() => readDraft() ?? [createEmptyLine()]);
+  const [session] = useState(() => {
+    const loaded = readActiveLines();
+    setActiveDraftId(loaded.id);
+    return loaded;
+  });
+  const [draftId, setDraftId] = useState(session.id);
+  const [journalLines, setJournalLines] = useState(session.lines);
 
-  // A blank grid removes the key, so a completed save leaves no stale draft behind.
   useEffect(() => {
+    localStorage.setItem(ACTIVE_DRAFT_ID_KEY, draftId);
     if (journalLines.every(isLineBlank)) {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      removeDraft(draftId);
     } else {
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(journalLines));
+      upsertDraft({ id: draftId, lines: journalLines });
     }
-  }, [journalLines]);
+  }, [draftId, journalLines]);
 
   const updateLine = useCallback((id, field, value) => {
     setJournalLines((current) => current.map((line) => (line.id === id ? { ...line, [field]: value } : line)));
@@ -60,9 +88,13 @@ export function useJournalLines() {
   }, []);
 
   const reset = useCallback(() => {
+    removeDraft(draftId);
     localStorage.removeItem(DRAFT_STORAGE_KEY);
+    const nextId = createDraftId();
+    setActiveDraftId(nextId);
+    setDraftId(nextId);
     setJournalLines([createEmptyLine()]);
-  }, []);
+  }, [draftId]);
 
   const totals = useMemo(() => {
     const debit = journalLines.reduce((sum, line) => sum + toCents(line.debit), 0);

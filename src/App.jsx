@@ -7,6 +7,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 const Login = lazy(() => import("@/pages/Login"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const SaisieComptable = lazy(() => import("@/pages/SaisieComptable"));
+const Brouillons = lazy(() => import("@/pages/Brouillons"));
 const GrandLivre = lazy(() => import("@/pages/GrandLivre"));
 const Lettrage = lazy(() => import("@/pages/Lettrage"));
 const Parametres = lazy(() => import("@/pages/Parametres"));
@@ -23,6 +24,7 @@ export default function App() {
           <Route element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="saisie" element={<SaisieComptable />} />
+            <Route path="brouillons" element={<Brouillons />} />
             <Route path="grand-livre" element={<GrandLivre />} />
             <Route path="lettrage" element={<Lettrage />} />
             <Route path="parametres" element={<Parametres />} />

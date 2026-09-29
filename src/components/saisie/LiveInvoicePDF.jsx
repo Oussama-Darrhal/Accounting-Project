@@ -1,11 +1,9 @@
+import { memo } from "react";
 import { Document, Page, PDFViewer, pdf, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { ACCOUNT_LABELS } from "@/data/planComptable";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { isLineBlank } from "@/hooks/useJournalLines";
 import { isoToFr } from "@/components/ui/date-input";
 import { formatCurrency, toCents } from "@/lib/utils";
-
-const PREVIEW_DEBOUNCE_MS = 400;
 
 const COLORS = { text: "#0f172a", muted: "#64748b", border: "#e2e8f0", head: "#f1f5f9", warning: "#b45309", success: "#15803d" };
 
@@ -97,11 +95,12 @@ export function renderInvoiceBlob(data) {
   return pdf(<LiveInvoiceDocument data={data} />).toBlob();
 }
 
-export default function LiveInvoicePDF({ data }) {
-  const debouncedData = useDebouncedValue(data, PREVIEW_DEBOUNCE_MS);
+function LiveInvoicePDF({ data }) {
   return (
     <PDFViewer className="h-full w-full rounded-md border-none">
-      <LiveInvoiceDocument data={debouncedData} />
+      <LiveInvoiceDocument data={data} />
     </PDFViewer>
   );
 }
+
+export default memo(LiveInvoicePDF);

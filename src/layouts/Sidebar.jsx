@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Calculator, LogOut, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
@@ -92,12 +92,17 @@ export function Sidebar({ collapsed, onExpand, mobileOpen, onCloseMobile }) {
             collapsed && "lg:justify-center lg:px-0"
           )}
         >
-          <div className="flex items-center gap-2.5">
+          <Link
+            to="/"
+            onClick={onCloseMobile}
+            title="Tableau de bord"
+            className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Calculator className="size-4" aria-hidden="true" />
             </span>
             <span className={cn("text-base font-semibold text-white", collapsed && "lg:sr-only")}>Compta MVP</span>
-          </div>
+          </Link>
 
           <button
             type="button"

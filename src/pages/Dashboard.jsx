@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, FilePen, Link2, Receipt, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarClock, Download, FilePen, Link2, Receipt, Siren, TrendingDown, TrendingUp } from "lucide-react";
 import { AreaChart } from "@/components/dashboard/AreaChart";
-import { MetricTile } from "@/components/dashboard/MetricTile";
 import { RecentEntries } from "@/components/dashboard/RecentEntries";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ACCOUNTING_ALERTS } from "@/data/alerts";
 import { DAILY_FINANCIALS, DATA_START_DATE, RECENT_ENTRIES } from "@/data/mockData";
 import { downloadFile, toCSV } from "@/lib/csv";
 import { DEFAULT_PRESET_ID, formatFileDate, formatRange, getPresetRange, getPreviousRange } from "@/lib/dateRange";
@@ -26,6 +26,23 @@ const percentFormatter = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 1,
   signDisplay: "exceptZero",
 });
+
+const ALERT_STYLES = {
+  warning: {
+    icon: AlertTriangle,
+    iconClasses: "bg-amber-100 text-amber-700",
+  },
+  destructive: {
+    icon: Siren,
+    iconClasses: "bg-destructive/10 text-destructive",
+  },
+};
+
+const ALERT_ICONS = {
+  drafts: AlertTriangle,
+  "late-invoices": Siren,
+  "vat-declaration": CalendarClock,
+};
 
 function useDashboardData(range) {
   return useMemo(() => {
@@ -114,14 +131,39 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-sm">Résumé</CardTitle>
-            <CardDescription>{periodLabel}</CardDescription>
+            <CardTitle className="text-sm">Alertes</CardTitle>
+            <CardDescription>Points nécessitant votre attention</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <MetricTile label="Résultat net" value={formatCompact(summary.netResult)} highlighted />
-            <MetricTile label="Charges" value={formatCompact(summary.charges)} />
-            <MetricTile label="TVA à payer" value={formatCompact(summary.vatDue)} />
-            <MetricTile label="Factures émises" value={summary.invoices} />
+          <CardContent>
+            <ul className="grid gap-2">
+              {ACCOUNTING_ALERTS.map((alert) => {
+                const Icon = ALERT_ICONS[alert.id] ?? ALERT_STYLES[alert.tone].icon;
+
+                return (
+                  <li key={alert.id}>
+                    <Link
+                      to={alert.to}
+                      className="group flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={cn("flex size-9 shrink-0 items-center justify-center rounded-md", ALERT_STYLES[alert.tone].iconClasses)}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{alert.label}</span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{alert.detail}</span>
+                      </span>
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                      />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </CardContent>
         </Card>
 

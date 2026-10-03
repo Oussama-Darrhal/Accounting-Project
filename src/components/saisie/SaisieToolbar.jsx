@@ -12,7 +12,6 @@ export function SaisieToolbar({ swapped, enlarged, onSwap, onToggleEnlarge }) {
         variant="outline"
         size="sm"
         onClick={onSwap}
-        disabled={enlarged}
         aria-pressed={swapped}
         title="Inverser les panneaux"
       >

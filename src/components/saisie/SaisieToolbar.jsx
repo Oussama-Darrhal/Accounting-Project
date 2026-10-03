@@ -24,10 +24,10 @@ export function SaisieToolbar({ swapped, enlarged, onSwap, onToggleEnlarge }) {
         size="sm"
         onClick={onToggleEnlarge}
         aria-pressed={enlarged}
-        title={enlarged ? "Réafficher la facture" : "Agrandir la saisie"}
+        title={enlarged ? "Quitter le plein écran" : "Afficher les deux panneaux en plein écran"}
       >
         {enlarged ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-        {enlarged ? "Réduire" : "Agrandir"}
+        {enlarged ? "Réduire" : "Plein écran"}
       </Button>
 
       <span className="ml-auto hidden text-xs text-muted-foreground sm:block">

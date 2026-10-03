@@ -64,6 +64,23 @@ export function useJournalLines() {
     setJournalLines([createEmptyLine()]);
   }, []);
 
+  const replaceLines = useCallback((lines) => {
+    if (!Array.isArray(lines) || lines.length === 0) {
+      setJournalLines([createEmptyLine()]);
+      return;
+    }
+    const fields = ["date", "facture", "compte", "debit", "credit", "tva"];
+    setJournalLines(
+      lines.map((line) => {
+        const next = createEmptyLine();
+        fields.forEach((field) => {
+          if (typeof line?.[field] === "string") next[field] = line[field];
+        });
+        return next;
+      })
+    );
+  }, []);
+
   const totals = useMemo(() => {
     const debit = journalLines.reduce((sum, line) => sum + toCents(line.debit), 0);
     const credit = journalLines.reduce((sum, line) => sum + toCents(line.credit), 0);
@@ -76,5 +93,5 @@ export function useJournalLines() {
     };
   }, [journalLines]);
 
-  return { journalLines, totals, updateLine, addLine, removeLine, reset };
+  return { journalLines, totals, updateLine, addLine, removeLine, reset, replaceLines };
 }

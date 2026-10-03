@@ -44,7 +44,7 @@ export function InvoiceViewer({ journalLines, uploadedFile }) {
   return (
     <section
       aria-label="Aperçu du document"
-      className="flex min-h-[420px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm md:min-h-0"
+      className="flex h-full min-h-[420px] min-w-0 flex-col overflow-hidden rounded-lg border bg-card shadow-sm md:min-h-0"
     >
       <div className="flex h-11 items-center gap-2 border-b px-4 text-sm font-medium">
         <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -64,12 +64,12 @@ export function InvoiceViewer({ journalLines, uploadedFile }) {
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 bg-slate-200 p-2">
+      <div className="flex min-h-0 flex-1 flex-col bg-slate-200 p-2">
         {uploadedFileUrl ? (
           <iframe
             title={`Lecture de ${uploadedFile.name}`}
             src={uploadedFileUrl}
-            className="h-full min-h-[560px] w-full rounded-md border-none bg-white"
+            className="min-h-[280px] w-full flex-1 rounded-md border-none bg-white md:min-h-0"
           />
         ) : isEmpty ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-slate-500">

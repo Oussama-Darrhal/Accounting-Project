@@ -2,13 +2,16 @@ import { memo, useEffect, useRef } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
-import { ACCOUNT_CLASSES, TVA_RATES } from "@/data/planComptable";
+import { ACCOUNT_CLASSES, JOURNALS, TIER_SUGGESTIONS, TVA_RATES } from "@/data/planComptable";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const COLUMNS = [
   { key: "date", label: "Date", width: "w-36" },
+  { key: "journal", label: "Journal", width: "w-24" },
   { key: "facture", label: "N° Facture", width: "w-32" },
+  { key: "libelle", label: "Libellé", width: "min-w-48" },
   { key: "compte", label: "Compte", width: "min-w-56" },
+  { key: "tiers", label: "Tiers", width: "min-w-48" },
   { key: "debit", label: "Débit", width: "w-32", numeric: true },
   { key: "credit", label: "Crédit", width: "w-32", numeric: true },
   { key: "tva", label: "TVA", width: "w-24" },
@@ -38,12 +41,35 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
         />
       </td>
       <td className="border-r p-0">
+        <select
+          className={cn(cellInput, "cursor-pointer")}
+          value={line.journal}
+          onChange={(e) => onChange(line.id, "journal", e.target.value)}
+          {...cellProps(1)}
+        >
+          {JOURNALS.map((journal) => (
+            <option key={journal} value={journal}>
+              {journal}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="border-r p-0">
         <input
           className={cellInput}
           placeholder="FA-…"
           value={line.facture}
           onChange={(e) => onChange(line.id, "facture", e.target.value)}
-          {...cellProps(1)}
+          {...cellProps(2)}
+        />
+      </td>
+      <td className="border-r p-0">
+        <input
+          className={cellInput}
+          placeholder="Description de l'opération"
+          value={line.libelle}
+          onChange={(e) => onChange(line.id, "libelle", e.target.value)}
+          {...cellProps(3)}
         />
       </td>
       <td className="border-r p-0">
@@ -51,7 +77,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           className={cn(cellInput, "cursor-pointer", !line.compte && "text-muted-foreground")}
           value={line.compte}
           onChange={(e) => onChange(line.id, "compte", e.target.value)}
-          {...cellProps(2)}
+          {...cellProps(4)}
         >
           <option value="">Sélectionner…</option>
           {ACCOUNT_CLASSES.map((group) => (
@@ -66,13 +92,33 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
         </select>
       </td>
       <td className="border-r p-0">
+        <select
+          className={cn(cellInput, "cursor-pointer", !line.tiers && "text-muted-foreground")}
+          value={line.tiers}
+          onChange={(e) => onChange(line.id, "tiers", e.target.value)}
+          {...cellProps(5)}
+        >
+          <option value="">Sélectionner…</option>
+          {line.tiers && !TIER_SUGGESTIONS.includes(line.tiers) && (
+            <option value={line.tiers} className="text-foreground">
+              {line.tiers}
+            </option>
+          )}
+          {TIER_SUGGESTIONS.map((suggestion) => (
+            <option key={suggestion} value={suggestion} className="text-foreground">
+              {suggestion}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="border-r p-0">
         <input
           inputMode="decimal"
           className={cn(cellInput, "text-right tabular-nums")}
           placeholder="0,00"
           value={line.debit}
           onChange={(e) => onChange(line.id, "debit", e.target.value)}
-          {...cellProps(3)}
+          {...cellProps(6)}
         />
       </td>
       <td className="border-r p-0">
@@ -82,7 +128,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           placeholder="0,00"
           value={line.credit}
           onChange={(e) => onChange(line.id, "credit", e.target.value)}
-          {...cellProps(4)}
+          {...cellProps(7)}
         />
       </td>
       <td className="border-r p-0">
@@ -90,7 +136,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           className={cn(cellInput, "cursor-pointer")}
           value={line.tva}
           onChange={(e) => onChange(line.id, "tva", e.target.value)}
-          {...cellProps(5)}
+          {...cellProps(8)}
         >
           {TVA_RATES.map((rate) => (
             <option key={rate.value} value={rate.value}>
@@ -144,7 +190,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-auto rounded-md border">
-        <table ref={tableRef} onKeyDown={handleKeyDown} className="w-full min-w-[760px] border-collapse text-sm">
+        <table ref={tableRef} onKeyDown={handleKeyDown} className="w-full min-w-[1280px] border-collapse text-sm">
           <caption className="sr-only">Lignes de l'écriture comptable</caption>
           <thead className="sticky top-0 z-10 bg-slate-100">
             <tr className="border-b">
@@ -183,7 +229,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove }) {
           </tbody>
           <tfoot className="sticky bottom-0 bg-slate-50 font-semibold">
             <tr className="border-t-2 border-slate-300">
-              <td colSpan={4} className="h-9 border-r px-2 text-right text-xs uppercase tracking-wide text-slate-600">
+              <td colSpan={7} className="h-9 border-r px-2 text-right text-xs uppercase tracking-wide text-slate-600">
                 Totaux
               </td>
               <td className="border-r px-2 text-right tabular-nums">{formatCurrency(totals.debit)}</td>

@@ -57,6 +57,7 @@ export function parseInvoiceText(text) {
   const date = foundDate || todayISO();
   const { kind, creditNote, assumedKind } = analyzeKind(flat);
   const accounts = accountsFor(kind, flat);
+  const party = findParty(flat, kind);
   const lines = buildLines({
     date,
     number,
@@ -67,6 +68,9 @@ export function parseInvoiceText(text) {
     tvaCents: reconciled.tvaCents,
     ttcCents: reconciled.ttcCents,
     accounts,
+    journal: kind === "sale" ? "VT" : "ACH",
+    libelle: findLibelle(flat, number, kind, creditNote),
+    tiers: party ? `${accounts.counterparty} - ${party}` : "",
   });
 
   const warnings = [...reconciled.warnings];
@@ -287,17 +291,11 @@ function accountsFor(kind, text) {
   return { product: rent ? "6131" : service ? "6125" : "6111", counterparty: "4411", vat: "3455" };
 }
 
-function buildLines({ date, number, kind, creditNote, rate, htCents, tvaCents, ttcCents, accounts }) {
-  const product = entryLine(date, number, accounts.product, kind === "sale" ? 0 : htCents, kind === "sale" ? htCents : 0, rate);
-  const vat = entryLine(date, number, accounts.vat, kind === "sale" ? 0 : tvaCents, kind === "sale" ? tvaCents : 0, rate);
-  const counterparty = entryLine(
-    date,
-    number,
-    accounts.counterparty,
-    kind === "sale" ? ttcCents : 0,
-    kind === "sale" ? 0 : ttcCents,
-    rate
-  );
+function buildLines({ date, number, kind, creditNote, rate, htCents, tvaCents, ttcCents, accounts, journal, libelle, tiers }) {
+  const details = { date, number, rate, journal, libelle, tiers, counterparty: accounts.counterparty };
+  const product = entryLine(details, accounts.product, kind === "sale" ? 0 : htCents, kind === "sale" ? htCents : 0);
+  const vat = entryLine(details, accounts.vat, kind === "sale" ? 0 : tvaCents, kind === "sale" ? tvaCents : 0);
+  const counterparty = entryLine(details, accounts.counterparty, kind === "sale" ? ttcCents : 0, kind === "sale" ? 0 : ttcCents);
   const lines = kind === "sale" ? [counterparty, product] : [product];
   if (tvaCents > 0) lines.push(vat);
   if (kind !== "sale") lines.push(counterparty);
@@ -305,15 +303,48 @@ function buildLines({ date, number, kind, creditNote, rate, htCents, tvaCents, t
   return lines.map((line) => ({ ...line, debit: line.credit, credit: line.debit }));
 }
 
-function entryLine(date, facture, compte, debitCents, creditCents, rate) {
+function entryLine(details, compte, debitCents, creditCents) {
   return {
-    date,
-    facture,
+    date: details.date,
+    journal: details.journal,
+    facture: details.number,
+    libelle: details.libelle,
     compte,
+    tiers: compte === details.counterparty ? details.tiers : "",
     debit: debitCents ? formatCents(debitCents) : "",
     credit: creditCents ? formatCents(creditCents) : "",
-    tva: String(rate),
+    tva: String(details.rate),
   };
+}
+
+function findParty(text, kind) {
+  const supplier = captureName(text, "fournisseur");
+  const client = captureName(text, "client");
+  if (kind === "sale") return client || supplier;
+  return supplier || client;
+}
+
+function captureName(text, label) {
+  const match = text.match(
+    new RegExp(
+      String.raw`${label}\s*[:\-]\s*([a-z0-9][a-z0-9 '&._-]{0,48}?)(?=\s+(?:total|tva|montant|net|date|facture|prestation|designation|ht|ttc)\b|$)`,
+      "i"
+    )
+  );
+  return match ? titleCase(match[1].trim()) : "";
+}
+
+function findLibelle(text, number, kind, creditNote) {
+  const labeled = text.match(
+    /(?:designation|libelle|objet)\s*[:\-]\s*([a-z0-9][a-z0-9 '&._-]{1,60}?)(?=\s+(?:total|tva|montant|net)\b|$)/i
+  );
+  if (labeled?.[1]) return titleCase(labeled[1].trim());
+  const prefix = creditNote ? "Avoir" : kind === "sale" ? "Vente" : "Achat";
+  return number ? `${prefix} ${number}` : prefix;
+}
+
+function titleCase(value) {
+  return value.replace(/\p{L}+/gu, (word) => word.charAt(0).toUpperCase() + word.slice(1));
 }
 
 function describe({ kind, creditNote, number, rate, htCents, ttcCents }) {

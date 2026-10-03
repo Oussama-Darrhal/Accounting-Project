@@ -39,11 +39,11 @@ describe("parseInvoiceText", () => {
     assert.equal(result.rate, 20);
     assert.deepEqual(result.warnings, []);
     assert.deepEqual(
-      result.lines.map((line) => [line.compte, line.debit, line.credit]),
+      result.lines.map((line) => [line.journal, line.libelle, line.compte, line.tiers, line.debit, line.credit]),
       [
-        ["6111", "12500,00", ""],
-        ["3455", "2500,00", ""],
-        ["4411", "", "15000,00"],
+        ["ACH", "Achat FF-0342", "6111", "", "12500,00", ""],
+        ["ACH", "Achat FF-0342", "3455", "", "2500,00", ""],
+        ["ACH", "Achat FF-0342", "4411", "4411 - Sud Import", "", "15000,00"],
       ]
     );
     balanced(result);
@@ -63,9 +63,13 @@ describe("parseInvoiceText", () => {
     assert.equal(result.ok, true);
     assert.equal(result.kind, "sale");
     assert.equal(result.rate, 14);
+    assert.equal(result.lines[0].journal, "VT");
+    assert.equal(result.lines[0].libelle, "Vente FA-2026-002");
+    assert.equal(result.lines[0].tiers, "3421 - Rif Distribution");
     assert.equal(result.lines[0].compte, "3421");
     assert.equal(result.lines[0].debit, "11400,00");
     assert.equal(result.lines[1].compte, "7121");
+    assert.equal(result.lines[1].tiers, "");
     assert.equal(result.lines[1].credit, "10000,00");
     assert.equal(result.lines[2].compte, "4455");
     balanced(result);

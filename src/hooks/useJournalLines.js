@@ -10,19 +10,36 @@ const createLineId = () => `line-${Date.now()}-${(lineSequence += 1)}`;
 
 /** Amounts stay strings while typing ("12," is a valid intermediate state); they become numbers in the payload. */
 export function createEmptyLine() {
-  return { id: createLineId(), date: "", facture: "", compte: "", debit: "", credit: "", tva: "20" };
+  return {
+    id: createLineId(),
+    date: "",
+    journal: "ACH",
+    facture: "",
+    libelle: "",
+    compte: "",
+    tiers: "",
+    debit: "",
+    credit: "",
+    tva: "20",
+  };
 }
 
 export const hasAmount = (line) => toCents(line.debit) !== 0 || toCents(line.credit) !== 0;
 
 export const isLineBlank = (line) =>
-  !line.date && !line.facture.trim() && !line.compte && !line.debit.trim() && !line.credit.trim();
+  !line.date &&
+  !line.facture.trim() &&
+  !line.libelle.trim() &&
+  !line.compte &&
+  !line.tiers.trim() &&
+  !line.debit.trim() &&
+  !line.credit.trim();
 
 function readDraft() {
   try {
     const parsed = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY));
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    const fields = ["date", "facture", "compte", "debit", "credit", "tva"];
+    const fields = ["date", "journal", "facture", "libelle", "compte", "tiers", "debit", "credit", "tva"];
     return parsed
       .filter((line) => line && typeof line.id === "string")
       .map((line) => {
@@ -69,7 +86,7 @@ export function useJournalLines() {
       setJournalLines([createEmptyLine()]);
       return;
     }
-    const fields = ["date", "facture", "compte", "debit", "credit", "tva"];
+    const fields = ["date", "journal", "facture", "libelle", "compte", "tiers", "debit", "credit", "tva"];
     setJournalLines(
       lines.map((line) => {
         const next = createEmptyLine();

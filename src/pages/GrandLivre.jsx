@@ -6,23 +6,28 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { LEDGER_ENTRIES } from "@/data/mockData";
+import { ledgerRowsFromEntries } from "@/lib/ledger";
 import { ACCOUNT_LABELS } from "@/data/planComptable";
+import { useAccountingStore } from "@/stores/useAccountingStore";
 import { downloadFile, toCSV } from "@/lib/csv";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-
-const LEDGER_ACCOUNTS = [...new Set(LEDGER_ENTRIES.map((entry) => entry.account))].sort();
 
 const CSV_HEADER = ["Date", "Pièce", "Compte", "Débit", "Crédit"];
 
 export default function GrandLivre() {
+  const journalEntries = useAccountingStore((state) => state.journalEntries);
+  const ledgerRows = useMemo(() => ledgerRowsFromEntries(journalEntries), [journalEntries]);
+  const ledgerAccounts = useMemo(
+    () => [...new Set(ledgerRows.map((entry) => entry.account))].sort(),
+    [ledgerRows]
+  );
   const [account, setAccount] = useState("all");
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
   const { rows, totals } = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase();
-    const filtered = LEDGER_ENTRIES.filter(
+    const filtered = ledgerRows.filter(
       (entry) =>
         (account === "all" || entry.account === account) &&
         (!needle || entry.label.toLowerCase().includes(needle) || entry.piece.toLowerCase().includes(needle))
@@ -42,7 +47,7 @@ export default function GrandLivre() {
         balance,
       },
     };
-  }, [account, deferredQuery]);
+  }, [account, deferredQuery, ledgerRows]);
 
   const handleExportCSV = () => {
     const lines = rows.map((row) => [formatDate(row.date), row.piece, row.account, row.debit, row.credit]);
@@ -65,7 +70,7 @@ export default function GrandLivre() {
           <Label htmlFor="gl-account">Compte</Label>
           <Select id="gl-account" value={account} onChange={(e) => setAccount(e.target.value)}>
             <option value="all">Tous les comptes</option>
-            {LEDGER_ACCOUNTS.map((code) => (
+            {ledgerAccounts.map((code) => (
               <option key={code} value={code}>
                 {code} — {ACCOUNT_LABELS[code]}
               </option>
@@ -106,7 +111,9 @@ export default function GrandLivre() {
             {rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  Aucun mouvement ne correspond aux filtres.
+                  {ledgerRows.length === 0
+                    ? "Aucune écriture validée. Enregistrez une écriture équilibrée depuis la saisie."
+                    : "Aucun mouvement ne correspond aux filtres."}
                 </td>
               </tr>
             )}

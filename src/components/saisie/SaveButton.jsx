@@ -1,7 +1,7 @@
 import { FilePen, LoaderCircle, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/** Unbalanced entries can't be saved; they stay as a local draft until the écart is fixed. */
+/** A balanced entry is posted. An unbalanced one is stored as a brouillon. */
 export function SaveButton({ isBalanced, disabled, saving = false }) {
   const Icon = saving ? LoaderCircle : isBalanced ? Save : FilePen;
   return (

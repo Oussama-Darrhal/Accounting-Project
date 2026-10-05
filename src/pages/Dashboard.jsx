@@ -8,17 +8,24 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ACCOUNTING_ALERTS } from "@/data/alerts";
-import { DAILY_FINANCIALS, DATA_START_DATE, RECENT_ENTRIES } from "@/data/mockData";
+import { DAILY_FINANCIALS, DATA_START_DATE } from "@/data/mockData";
+import { draftCount, recentEntriesFromJournal } from "@/lib/ledger";
+import { useAccountingStore } from "@/stores/useAccountingStore";
 import { downloadFile, toCSV } from "@/lib/csv";
 import { DEFAULT_PRESET_ID, formatFileDate, formatRange, getPresetRange, getPreviousRange } from "@/lib/dateRange";
 import { bucketize, filterByRange, GRANULARITY_LABELS, percentChange, summarize } from "@/lib/financials";
 import { cn, formatCompact } from "@/lib/utils";
 
-const TASKS = [
-  { icon: FilePen, label: "Brouillons à corriger", count: 3, to: "/saisie" },
+const STATIC_TASKS = [
   { icon: Link2, label: "Écritures non lettrées", count: 7, to: "/lettrage" },
   { icon: Receipt, label: "Déclaration TVA — échéance 20/10", count: 1, to: "/grand-livre" },
 ];
+
+function draftLabel(count) {
+  if (count === 0) return "Aucun brouillon à corriger";
+  if (count === 1) return "1 Brouillon à corriger";
+  return `${count} Brouillons à corriger`;
+}
 
 const GRANULARITY_CHART_LABELS = { day: "jour", week: "semaine", month: "mois" };
 
@@ -76,6 +83,22 @@ function RevenueTrend({ change }) {
 
 export default function Dashboard() {
   const [activeDateRange, setActiveDateRange] = useState(() => getPresetRange(DEFAULT_PRESET_ID));
+  const journalEntries = useAccountingStore((state) => state.journalEntries);
+  const brouillons = draftCount(journalEntries);
+  const recentEntries = recentEntriesFromJournal(journalEntries);
+  const alerts = ACCOUNTING_ALERTS.map((alert) =>
+    alert.id === "drafts"
+      ? {
+          ...alert,
+          label: draftLabel(brouillons),
+          detail: brouillons ? "Écritures en attente de vérification" : "Aucune écriture déséquilibrée enregistrée",
+        }
+      : alert
+  );
+  const tasks = [
+    { icon: FilePen, label: "Brouillons à corriger", count: brouillons, to: "/saisie" },
+    ...STATIC_TASKS,
+  ];
   const { summary, revenueChange, granularity, buckets, chartData } = useDashboardData(activeDateRange);
   const periodLabel = formatRange(activeDateRange);
 
@@ -136,7 +159,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <ul className="grid gap-2">
-              {ACCOUNTING_ALERTS.map((alert) => {
+              {alerts.map((alert) => {
                 const Icon = ALERT_ICONS[alert.id] ?? ALERT_STYLES[alert.tone].icon;
 
                 return (
@@ -167,7 +190,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <RecentEntries entries={RECENT_ENTRIES} />
+        <RecentEntries entries={recentEntries} />
 
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -176,7 +199,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <ul className="grid gap-3 sm:grid-cols-3">
-              {TASKS.map(({ icon: Icon, label, count, to }) => (
+              {tasks.map(({ icon: Icon, label, count, to }) => (
                 <li key={label}>
                   <Link
                     to={to}

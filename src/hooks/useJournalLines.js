@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toCents } from "@/lib/utils";
+import { useAccountingStore } from "@/stores/useAccountingStore";
 
 export const DRAFT_STORAGE_KEY = "saisie_comptable_draft";
 
@@ -35,34 +36,53 @@ export const isLineBlank = (line) =>
   !line.debit.trim() &&
   !line.credit.trim();
 
-function readDraft() {
+const LINE_FIELDS = ["date", "journal", "facture", "libelle", "compte", "tiers", "debit", "credit", "tva"];
+
+function restoreLine(line) {
+  const restored = { ...createEmptyLine(), id: typeof line?.id === "string" ? line.id : createLineId() };
+  LINE_FIELDS.forEach((field) => typeof line?.[field] === "string" && (restored[field] = line[field]));
+  return restored;
+}
+
+function readLegacyDraft() {
   try {
     const parsed = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY));
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    const fields = ["date", "journal", "facture", "libelle", "compte", "tiers", "debit", "credit", "tva"];
-    return parsed
-      .filter((line) => line && typeof line.id === "string")
-      .map((line) => {
-        const restored = { ...createEmptyLine(), id: line.id };
-        fields.forEach((field) => typeof line[field] === "string" && (restored[field] = line[field]));
-        return restored;
-      });
+    return parsed.filter((line) => line && typeof line.id === "string").map(restoreLine);
   } catch {
     return null;
   }
 }
 
 export function useJournalLines() {
-  const [journalLines, setJournalLines] = useState(() => readDraft() ?? [createEmptyLine()]);
+  const draftLines = useAccountingStore((state) => state.draftLines);
+  const hasHydrated = useAccountingStore((state) => state.hasHydrated);
+  const setDraftLines = useAccountingStore((state) => state.setDraftLines);
+  const [journalLines, setJournalLines] = useState(() => [createEmptyLine()]);
+  const hydratedRef = useRef(false);
+  const skipNextWrite = useRef(false);
 
-  // A blank grid removes the key, so a completed save leaves no stale draft behind.
+  // Wait for Zustand persist, then adopt the stored grid (or the previous localStorage draft).
   useEffect(() => {
-    if (journalLines.every(isLineBlank)) {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-    } else {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(journalLines));
+    if (!hasHydrated || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const legacy = readLegacyDraft();
+    const source = Array.isArray(draftLines) && draftLines.length > 0 ? draftLines : legacy;
+    if (source) {
+      skipNextWrite.current = true;
+      setJournalLines(source.map(restoreLine));
     }
-  }, [journalLines]);
+    if (legacy) localStorage.removeItem(DRAFT_STORAGE_KEY);
+  }, [hasHydrated, draftLines]);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (skipNextWrite.current) {
+      skipNextWrite.current = false;
+      return;
+    }
+    setDraftLines(journalLines.every(isLineBlank) ? null : journalLines);
+  }, [journalLines, setDraftLines]);
 
   const updateLine = useCallback((id, field, value) => {
     setJournalLines((current) => current.map((line) => (line.id === id ? { ...line, [field]: value } : line)));
@@ -77,7 +97,6 @@ export function useJournalLines() {
   }, []);
 
   const reset = useCallback(() => {
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
     setJournalLines([createEmptyLine()]);
   }, []);
 
@@ -86,16 +105,7 @@ export function useJournalLines() {
       setJournalLines([createEmptyLine()]);
       return;
     }
-    const fields = ["date", "journal", "facture", "libelle", "compte", "tiers", "debit", "credit", "tva"];
-    setJournalLines(
-      lines.map((line) => {
-        const next = createEmptyLine();
-        fields.forEach((field) => {
-          if (typeof line?.[field] === "string") next[field] = line[field];
-        });
-        return next;
-      })
-    );
+    setJournalLines(lines.map(restoreLine));
   }, []);
 
   const totals = useMemo(() => {

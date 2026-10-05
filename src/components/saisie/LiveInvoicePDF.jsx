@@ -10,11 +10,14 @@ const PREVIEW_DEBOUNCE_MS = 400;
 const COLORS = { text: "#0f172a", muted: "#64748b", border: "#e2e8f0", head: "#f1f5f9", warning: "#b45309", success: "#15803d" };
 
 const COLUMNS = [
-  { key: "date", label: "Date", width: "13%" },
-  { key: "facture", label: "N° Facture", width: "17%" },
-  { key: "compte", label: "Compte", width: "38%" },
-  { key: "debit", label: "Débit", width: "16%", align: "right" },
-  { key: "credit", label: "Crédit", width: "16%", align: "right" },
+  { key: "date", label: "Date", width: "10%" },
+  { key: "journal", label: "Journal", width: "7%" },
+  { key: "facture", label: "N° Facture", width: "12%" },
+  { key: "libelle", label: "Libellé", width: "16%" },
+  { key: "compte", label: "Compte", width: "17%" },
+  { key: "tiers", label: "Tiers", width: "12%" },
+  { key: "debit", label: "Débit", width: "13%", align: "right" },
+  { key: "credit", label: "Crédit", width: "13%", align: "right" },
 ];
 
 const styles = StyleSheet.create({
@@ -80,9 +83,9 @@ export function LiveInvoiceDocument({ data }) {
         ))}
 
         <View style={[styles.row, styles.totalRow]}>
-          <Text style={[styles.cell, { width: "68%" }]}>Total</Text>
-          <Text style={[styles.cell, { width: "16%", textAlign: "right" }]}>{money(totalDebit)}</Text>
-          <Text style={[styles.cell, { width: "16%", textAlign: "right" }]}>{money(totalCredit)}</Text>
+          <Text style={[styles.cell, { width: "74%" }]}>Total</Text>
+          <Text style={[styles.cell, { width: "13%", textAlign: "right" }]}>{money(totalDebit)}</Text>
+          <Text style={[styles.cell, { width: "13%", textAlign: "right" }]}>{money(totalCredit)}</Text>
         </View>
 
         <Text style={[styles.status, { color: gap === 0 ? COLORS.success : COLORS.warning }]}>

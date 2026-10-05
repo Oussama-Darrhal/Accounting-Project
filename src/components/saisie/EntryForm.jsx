@@ -6,7 +6,8 @@ import { EntryGrid } from "@/components/saisie/EntryGrid";
 import { SaveButton } from "@/components/saisie/SaveButton";
 import { hasAmount } from "@/hooks/useJournalLines";
 import { formatCurrency } from "@/lib/utils";
-import { buildJournalPayload, saveJournalEntry } from "@/services/journalApi";
+import { buildJournalPayload } from "@/services/journalApi";
+import { useAccountingStore } from "@/stores/useAccountingStore";
 
 /** @param journal Return value of useJournalLines(), owned by the Saisie page so the PDF preview shares it. */
 export function EntryForm({ journal }) {
@@ -18,17 +19,6 @@ export function EntryForm({ journal }) {
     event.preventDefault();
     if (saving || totals.isEmpty) return;
 
-    const { debit: totalDebit, credit: totalCredit } = totals;
-    // isBalanced compares integer cents, so 0.1 + 0.2 still equals 0.3.
-    if (!totals.isBalanced) {
-      toast({
-        variant: "error",
-        title: "Écriture non équilibrée",
-        description: `Débit ${formatCurrency(totalDebit)} / Crédit ${formatCurrency(totalCredit)} : écart de ${formatCurrency(Math.abs(totals.difference))}. Enregistrement bloqué, le brouillon reste sauvegardé sur cet appareil.`,
-      });
-      return;
-    }
-
     const incompleteIndex = journalLines.findIndex((line) => hasAmount(line) && (!line.date || !line.compte));
     if (incompleteIndex !== -1) {
       toast({
@@ -39,14 +29,25 @@ export function EntryForm({ journal }) {
       return;
     }
 
+    const { debit: totalDebit, credit: totalCredit } = totals;
     setSaving(true);
     try {
-      const saved = await saveJournalEntry(buildJournalPayload(journalLines));
-      toast({
-        variant: "success",
-        title: "Écriture enregistrée",
-        description: `${saved.lines.length} ligne${saved.lines.length > 1 ? "s" : ""} · ${formatCurrency(totalDebit)}`,
-      });
+      const saved = useAccountingStore.getState().saveJournalEntry(buildJournalPayload(journalLines));
+      const countLabel = `${saved.lines.length} ligne${saved.lines.length > 1 ? "s" : ""} · ${formatCurrency(totalDebit)}`;
+      if (saved.is_draft) {
+        toast({
+          variant: "warning",
+          title: "Brouillon enregistré",
+          description: `${countLabel}. Écart ${formatCurrency(Math.abs(totals.difference))}. Le compteur du tableau de bord est à jour. Cette écriture n'entre pas au grand livre.`,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          variant: "success",
+          title: "Écriture enregistrée",
+          description: `${countLabel}. Elle est visible dans le grand livre.`,
+        });
+      }
       reset();
     } catch {
       toast({ variant: "error", title: "Échec de l'enregistrement", description: "Veuillez réessayer." });

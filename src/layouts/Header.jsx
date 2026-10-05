@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { matchPath, useLocation } from "react-router-dom";
 import { Menu, PanelLeft, PanelLeftClose } from "lucide-react";
-import { AlertsMenu } from "@/layouts/AlertsMenu";
 import { NAV_ITEMS } from "@/layouts/navigation";
 import { cn } from "@/lib/utils";
 
@@ -54,10 +53,6 @@ export function Header({ collapsed, onToggleCollapsed, sidebarOpen, onOpenSideba
       </button>
 
       <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>
-
-      <div className="ml-auto">
-        <AlertsMenu />
-      </div>
     </header>
   );
 }

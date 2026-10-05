@@ -32,6 +32,13 @@ export function RecentEntries({ entries }) {
             </tr>
           </thead>
           <tbody>
+            {entries.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  Aucune écriture enregistrée.
+                </td>
+              </tr>
+            )}
             {entries.map((entry) => (
               <tr key={entry.id} className="border-b last:border-0">
                 <td className="py-2.5 text-muted-foreground">{formatDate(entry.date)}</td>

@@ -83,3 +83,7 @@ export const TVA_RATES = [
   { value: "10", label: "10 %" },
   { value: "7", label: "7 %" },
 ];
+
+export const JOURNALS = ["ACH", "VT", "BQ", "OD"];
+
+export const TIER_SUGGESTIONS = ["4411 - Oasis Tech", "3421 - Atlas SARL", "5141 - Banque Populaire"];

@@ -6,8 +6,11 @@ export function buildJournalPayload(journalLines) {
   return {
     lines: journalLines.filter(hasAmount).map((line) => ({
       date: line.date,
+      journal: line.journal,
       facture: line.facture.trim(),
+      libelle: line.libelle.trim(),
       compte: line.compte,
+      tiers: line.tiers.trim(),
       debit: toCents(line.debit) / 100,
       credit: toCents(line.credit) / 100,
       tva: Number(line.tva),

@@ -6,7 +6,21 @@ export function CompanySwitcher() {
   const companies = useCompanyStore((state) => state.companies);
   const currentCompanyId = useCompanyStore((state) => state.currentCompanyId);
   const switchCompany = useCompanyStore((state) => state.switchCompany);
+  const loadError = useCompanyStore((state) => state.loadError);
+  const hasHydrated = useCompanyStore((state) => state.hasHydrated);
   const current = companies.find((company) => String(company.id) === String(currentCompanyId));
+
+  if (!hasHydrated || (companies.length === 0 && !loadError)) {
+    return <p className="ml-auto truncate text-sm text-muted-foreground">Chargement des dossiers…</p>;
+  }
+
+  if (loadError) {
+    return (
+      <p role="alert" className="ml-auto truncate text-sm text-destructive">
+        {loadError}
+      </p>
+    );
+  }
 
   if (companies.length === 0) return null;
 

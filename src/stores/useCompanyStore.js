@@ -45,11 +45,20 @@ export const useCompanyStore = create(
       name: "compta-mvp:company",
       version: 1,
       partialize: (state) => ({ currentCompanyId: state.currentCompanyId }),
-      onRehydrateStorage: () => () => {
-        const current = useCompanyStore.getState();
-        setActiveCompanyId(current.currentCompanyId ?? null);
-        current.setHasHydrated(true);
+      // Persist hydrates synchronously inside create(). Do not read `useCompanyStore` here
+      // (temporal dead zone). Use the rehydrated `state` argument instead.
+      onRehydrateStorage: () => (state) => {
+        setActiveCompanyId(state?.currentCompanyId ?? null);
+        state?.setHasHydrated(true);
       },
     }
   )
 );
+
+if (typeof window !== "undefined" && !useCompanyStore.getState().hasHydrated) {
+  queueMicrotask(() => {
+    if (useCompanyStore.getState().hasHydrated) return;
+    setActiveCompanyId(useCompanyStore.getState().currentCompanyId ?? null);
+    useCompanyStore.setState({ hasHydrated: true });
+  });
+}

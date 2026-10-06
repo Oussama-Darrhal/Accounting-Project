@@ -76,3 +76,11 @@ export const useAccountingStore = create(
     }
   )
 );
+
+if (typeof window !== "undefined" && !useAccountingStore.getState().hasHydrated) {
+  queueMicrotask(() => {
+    if (!useAccountingStore.getState().hasHydrated) {
+      useAccountingStore.setState({ hasHydrated: true });
+    }
+  });
+}

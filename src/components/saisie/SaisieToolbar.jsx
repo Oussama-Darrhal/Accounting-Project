@@ -1,7 +1,7 @@
-import { ArrowLeftRight, FileUp, Maximize2, Minimize2, UserPlus } from "lucide-react";
+import { ArrowLeftRight, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function SaisieToolbar({ swapped, enlarged, onSwap, onToggleEnlarge, onChangePdf, onNewTier }) {
+export function SaisieToolbar({ swapped, enlarged, onSwap, onToggleEnlarge }) {
   return (
     <div
       role="toolbar"
@@ -29,20 +29,6 @@ export function SaisieToolbar({ swapped, enlarged, onSwap, onToggleEnlarge, onCh
         {enlarged ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
         {enlarged ? "Réduire" : "Plein écran"}
       </Button>
-
-      {onChangePdf && (
-        <Button variant="outline" size="sm" onClick={onChangePdf} title="Remplacer la pièce PDF">
-          <FileUp aria-hidden="true" />
-          Changer le PDF
-        </Button>
-      )}
-
-      {onNewTier && (
-        <Button variant="outline" size="sm" onClick={onNewTier} title="Créer un client ou un fournisseur">
-          <UserPlus aria-hidden="true" />
-          Nouveau tiers
-        </Button>
-      )}
 
       <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
         Entrée : ligne suivante · Tab : cellule suivante

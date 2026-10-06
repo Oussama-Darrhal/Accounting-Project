@@ -11,7 +11,7 @@ function getFilename(journalLines) {
   return `${(facture ?? "ecriture-brouillon").replace(/[^\w.-]+/g, "_")}.pdf`;
 }
 
-export function InvoiceViewer({ journalLines, uploadedFile, onChangePdf }) {
+export function InvoiceViewer({ journalLines, uploadedFile }) {
   const [downloading, setDownloading] = useState(false);
   const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
   const isEmpty = journalLines.every(isLineBlank);
@@ -62,11 +62,6 @@ export function InvoiceViewer({ journalLines, uploadedFile, onChangePdf }) {
           <span className="hidden sm:inline">Télécharger</span>
           <span className="sr-only sm:hidden">Télécharger {filename}</span>
         </Button>
-        {onChangePdf && (
-          <Button type="button" variant="outline" size="sm" onClick={onChangePdf} className="h-7 px-2.5">
-            Changer
-          </Button>
-        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col bg-slate-200 p-2">

@@ -28,7 +28,9 @@ export default function SaisieComptable() {
   const [swapped, setSwapped] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
   const journal = useJournalLines();
-  const drafts = useAccountingStore((state) => state.journalEntries.filter((entry) => entry.is_draft));
+  const journalEntries = useAccountingStore((state) => state.journalEntries);
+  const drafts = journalEntries.filter((entry) => entry.is_draft);
+  const loadEntry = journal.loadEntry;
   const { toast } = useToast();
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function SaisieComptable() {
     fetchJournalEntry(brouillonId)
       .then((entry) => {
         if (cancelled) return;
-        journal.loadEntry(entry);
+        loadEntry(entry);
         toast({
           title: "Brouillon rouvert",
           description: entry.reference_piece ? `Pièce ${entry.reference_piece}` : "Corrigez les lignes puis enregistrez.",
@@ -69,7 +71,7 @@ export default function SaisieComptable() {
     return () => {
       cancelled = true;
     };
-  }, [brouillonId, journal, toast]);
+  }, [brouillonId, loadEntry, toast]);
 
   const ingestFile = async (file) => {
     if (!file || reading) return;

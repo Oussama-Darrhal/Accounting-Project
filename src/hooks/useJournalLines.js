@@ -143,5 +143,8 @@ export function useJournalLines() {
     };
   }, [journalLines]);
 
-  return { journalLines, totals, updateLine, addLine, removeLine, reset, replaceLines, loadEntry, editingEntryId };
+  return useMemo(
+    () => ({ journalLines, totals, updateLine, addLine, removeLine, reset, replaceLines, loadEntry, editingEntryId }),
+    [journalLines, totals, updateLine, addLine, removeLine, reset, replaceLines, loadEntry, editingEntryId]
+  );
 }

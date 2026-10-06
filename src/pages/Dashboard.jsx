@@ -8,12 +8,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { dashboardAlertsFromApi } from "@/data/alerts";
-import { DAILY_FINANCIALS, DATA_START_DATE } from "@/data/mockData";
+import { DATA_START_DATE } from "@/data/mockData";
 import { recentEntriesFromJournal } from "@/lib/ledger";
 import { useAccountingStore } from "@/stores/useAccountingStore";
 import { downloadFile, toCSV } from "@/lib/csv";
 import { DEFAULT_PRESET_ID, formatFileDate, formatRange, getPresetRange, getPreviousRange } from "@/lib/dateRange";
-import { bucketize, filterByRange, GRANULARITY_LABELS, percentChange, summarize } from "@/lib/financials";
+import { bucketize, dailyFinancialsFromJournal, filterByRange, GRANULARITY_LABELS, percentChange, summarize } from "@/lib/financials";
 import { cn, formatCompact } from "@/lib/utils";
 
 const STATIC_TASKS = [
@@ -44,11 +44,12 @@ const ALERT_ICONS = {
   "vat-declaration": CalendarClock,
 };
 
-function useDashboardData(range) {
+function useDashboardData(range, journalEntries) {
   return useMemo(() => {
-    const days = filterByRange(DAILY_FINANCIALS, range);
+    const series = dailyFinancialsFromJournal(journalEntries);
+    const days = filterByRange(series, range);
     const summary = summarize(days);
-    const previous = summarize(filterByRange(DAILY_FINANCIALS, getPreviousRange(range)));
+    const previous = summarize(filterByRange(series, getPreviousRange(range)));
     const { granularity, buckets } = bucketize(days, range);
     return {
       summary,
@@ -57,12 +58,12 @@ function useDashboardData(range) {
       buckets,
       chartData: buckets.map((bucket) => ({ key: bucket.key, label: bucket.label, value: bucket.revenue })),
     };
-  }, [range]);
+  }, [range, journalEntries]);
 }
 
 function RevenueTrend({ change }) {
   if (change === null) {
-    return <p className="mt-1 text-xs text-muted-foreground">Pas de période précédente à comparer</p>;
+    return <p className="mt-1 text-xs text-muted-foreground">Pas de chiffre d'affaires sur la période précédente</p>;
   }
   const up = change >= 0;
   const Icon = up ? TrendingUp : TrendingDown;
@@ -88,7 +89,7 @@ export default function Dashboard() {
     { icon: Link2, label: "Écritures non lettrées", count: apiAlerts.unlettered ?? 0, to: "/lettrage" },
     ...STATIC_TASKS,
   ];
-  const { summary, revenueChange, granularity, buckets, chartData } = useDashboardData(activeDateRange);
+  const { summary, revenueChange, granularity, buckets, chartData } = useDashboardData(activeDateRange, journalEntries);
   const periodLabel = formatRange(activeDateRange);
 
   const handleExport = () => {

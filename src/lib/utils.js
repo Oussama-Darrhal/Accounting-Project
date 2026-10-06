@@ -33,9 +33,9 @@ export function toCents(raw) {
 }
 
 export function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  if (!iso || typeof iso !== "string") return "";
+  const datePart = iso.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return "";
+  const [year, month, day] = datePart.split("-");
+  return `${day}/${month}/${year}`;
 }

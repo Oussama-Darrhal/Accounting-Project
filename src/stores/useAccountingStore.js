@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getActiveCompanyId } from "@/services/companyContext";
 import {
   fetchAccounts,
   fetchDashboardAlerts,
@@ -9,6 +10,8 @@ import {
 } from "@/services/journalApi";
 
 const EMPTY_ALERTS = { drafts: 0, late_invoices: 0, unlettered: 0, solde_restant: "0.00" };
+
+let hydrateSeq = 0;
 
 /**
  * Shared journal for saisie, the dashboard, and the grand livre.
@@ -36,15 +39,19 @@ export const useAccountingStore = create(
         });
       },
       hydrateFromApi: async () => {
-        set({ journalEntries: [], alerts: EMPTY_ALERTS, syncStatus: "loading", syncError: null });
+        const seq = (hydrateSeq += 1);
+        const companyId = getActiveCompanyId();
+        set({ journalEntries: [], alerts: EMPTY_ALERTS, accounts: [], syncStatus: "loading", syncError: null });
         try {
           const [journalEntries, alerts, accounts] = await Promise.all([
             fetchJournalEntries(),
             fetchDashboardAlerts(),
             fetchAccounts(),
           ]);
+          if (seq !== hydrateSeq || getActiveCompanyId() !== companyId) return;
           set({ journalEntries, alerts, accounts, syncStatus: "ready", syncError: null });
         } catch (error) {
+          if (seq !== hydrateSeq) return;
           set({
             journalEntries: [],
             alerts: EMPTY_ALERTS,

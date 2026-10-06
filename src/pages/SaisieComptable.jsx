@@ -44,7 +44,11 @@ export default function SaisieComptable() {
   }, [enlarged]);
 
   useEffect(() => {
-    if (!brouillonId || loadedBrouillon.current === brouillonId) return undefined;
+    if (!brouillonId) {
+      loadedBrouillon.current = null;
+      return undefined;
+    }
+    if (loadedBrouillon.current === brouillonId) return undefined;
     loadedBrouillon.current = brouillonId;
     setDocumentMode("new");
     let cancelled = false;

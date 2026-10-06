@@ -5,7 +5,7 @@ export function ledgerRowsFromEntries(journalEntries) {
     .flatMap((entry) =>
       (entry.lines ?? []).map((line, index) => ({
         id: line.id || `${entry.id}-${index}`,
-        date: line.date,
+        date: line.date || entry.date_piece || "",
         piece: line.facture || entry.reference_piece || entry.id,
         account: line.compte,
         label: line.libelle || line.tiers || "",
@@ -13,7 +13,7 @@ export function ledgerRowsFromEntries(journalEntries) {
         credit: Number(line.credit) || 0,
       }))
     )
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    .sort((a, b) => (a.date || "").localeCompare(b.date || "") || String(a.id).localeCompare(String(b.id)));
 }
 
 /** Newest saved entries first, for the dashboard list. */
@@ -28,6 +28,7 @@ export function recentEntriesFromJournal(journalEntries) {
       label: first.libelle || "Écriture",
       amount,
       status: entry.is_draft ? "draft" : "validated",
+      to: entry.is_draft ? `/saisie?brouillon=${entry.id}` : "/grand-livre",
     };
   });
 }

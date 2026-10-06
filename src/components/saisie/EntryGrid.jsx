@@ -7,16 +7,16 @@ import { cn, formatCurrency, toCents } from "@/lib/utils";
 
 const COLUMNS = [
   { key: "date", label: "Date", width: "w-36" },
-  { key: "journal", label: "Journal", width: "w-24" },
-  { key: "facture", label: "N° Facture", width: "w-32" },
-  { key: "libelle", label: "Libellé", width: "min-w-44" },
-  { key: "compte", label: "Compte", width: "min-w-52" },
-  { key: "tiers", label: "Tiers", width: "min-w-44" },
+  { key: "journal", label: "Journal", width: "w-20" },
+  { key: "facture", label: "N° Facture", width: "w-28" },
+  { key: "compte", label: "Compte", width: "min-w-44" },
   { key: "ht", label: "HT", width: "w-28", numeric: true, title: "Hors taxes — base avant TVA" },
-  { key: "tva", label: "TVA %", width: "w-28", title: "Taux de TVA. Recalcule HT et TTC (TTC = HT + taxe)" },
+  { key: "tva", label: "TVA %", width: "w-24", title: "Taux de TVA. Recalcule HT et TTC (TTC = HT + taxe)" },
   { key: "ttc", label: "TTC", width: "w-28", numeric: true, title: "Toutes taxes comprises — HT + TVA" },
   { key: "debit", label: "Débit", width: "w-28", numeric: true },
   { key: "credit", label: "Crédit", width: "w-28", numeric: true },
+  { key: "libelle", label: "Libellé", width: "min-w-40" },
+  { key: "tiers", label: "Tiers", width: "min-w-40" },
 ];
 
 const cellInput =
@@ -67,20 +67,11 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
         />
       </td>
       <td className="border-r p-0">
-        <input
-          className={cellInput}
-          placeholder="Description de l'opération"
-          value={line.libelle}
-          onChange={(e) => onChange(line.id, "libelle", e.target.value)}
-          {...cellProps(3)}
-        />
-      </td>
-      <td className="border-r p-0">
         <select
           className={cn(cellInput, "cursor-pointer", !line.compte && "text-muted-foreground")}
           value={line.compte}
           onChange={(e) => onChange(line.id, "compte", e.target.value)}
-          {...cellProps(4)}
+          {...cellProps(3)}
         >
           <option value="">Sélectionner…</option>
           {ACCOUNT_CLASSES.map((group) => (
@@ -95,33 +86,13 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
         </select>
       </td>
       <td className="border-r p-0">
-        <select
-          className={cn(cellInput, "cursor-pointer", !line.tiers && "text-muted-foreground")}
-          value={line.tiers}
-          onChange={(e) => onChange(line.id, "tiers", e.target.value)}
-          {...cellProps(5)}
-        >
-          <option value="">Sélectionner…</option>
-          {line.tiers && !tiersOptions.includes(line.tiers) && (
-            <option value={line.tiers} className="text-foreground">
-              {line.tiers}
-            </option>
-          )}
-          {tiersOptions.map((suggestion) => (
-            <option key={suggestion} value={suggestion} className="text-foreground">
-              {suggestion}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className="border-r p-0">
         <input
           inputMode="decimal"
           className={cn(cellInput, "text-right tabular-nums")}
           placeholder="0,00"
           value={line.ht ?? ""}
           onChange={(e) => onChange(line.id, "ht", e.target.value)}
-          {...cellProps(6)}
+          {...cellProps(4)}
         />
       </td>
       <td className="border-r p-0 align-top">
@@ -131,7 +102,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           title="Taux de TVA marocain. Change le HT (à partir du TTC) et le montant de taxe."
           aria-describedby="tva-help"
           onChange={(e) => onChange(line.id, "tva", e.target.value)}
-          {...cellProps(7)}
+          {...cellProps(5)}
         >
           {TVA_RATES.map((rate) => (
             <option key={rate.value} value={rate.value}>
@@ -152,7 +123,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           placeholder="0,00"
           value={line.ttc ?? ""}
           onChange={(e) => onChange(line.id, "ttc", e.target.value)}
-          {...cellProps(8)}
+          {...cellProps(6)}
         />
       </td>
       <td className="border-r p-0">
@@ -162,7 +133,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           placeholder="0,00"
           value={line.debit}
           onChange={(e) => onChange(line.id, "debit", e.target.value)}
-          {...cellProps(9)}
+          {...cellProps(7)}
         />
       </td>
       <td className="border-r p-0">
@@ -172,8 +143,37 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           placeholder="0,00"
           value={line.credit}
           onChange={(e) => onChange(line.id, "credit", e.target.value)}
-          {...cellProps(10)}
+          {...cellProps(8)}
         />
+      </td>
+      <td className="border-r p-0">
+        <input
+          className={cellInput}
+          placeholder="Description de l'opération"
+          value={line.libelle}
+          onChange={(e) => onChange(line.id, "libelle", e.target.value)}
+          {...cellProps(9)}
+        />
+      </td>
+      <td className="border-r p-0">
+        <select
+          className={cn(cellInput, "cursor-pointer", !line.tiers && "text-muted-foreground")}
+          value={line.tiers}
+          onChange={(e) => onChange(line.id, "tiers", e.target.value)}
+          {...cellProps(10)}
+        >
+          <option value="">Sélectionner…</option>
+          {line.tiers && !tiersOptions.includes(line.tiers) && (
+            <option value={line.tiers} className="text-foreground">
+              {line.tiers}
+            </option>
+          )}
+          {tiersOptions.map((suggestion) => (
+            <option key={suggestion} value={suggestion} className="text-foreground">
+              {suggestion}
+            </option>
+          ))}
+        </select>
       </td>
       <td className="w-10 p-0 text-center">
         <button
@@ -220,7 +220,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptio
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-auto rounded-md border">
-        <table ref={tableRef} onKeyDown={handleKeyDown} className="w-full min-w-[1480px] border-collapse text-sm">
+        <table ref={tableRef} onKeyDown={handleKeyDown} className="w-full min-w-[1360px] border-collapse text-sm">
           <caption className="sr-only">Lignes de l'écriture comptable</caption>
           <thead className="sticky top-0 z-10 bg-slate-100">
             <tr className="border-b">
@@ -261,7 +261,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptio
           </tbody>
           <tfoot className="sticky bottom-0 bg-slate-50 font-semibold">
             <tr className="border-t-2 border-slate-300">
-              <td colSpan={7} className="h-9 border-r px-2 text-right text-xs uppercase tracking-wide text-slate-600">
+              <td colSpan={5} className="h-9 border-r px-2 text-right text-xs uppercase tracking-wide text-slate-600">
                 Totaux
               </td>
               <td className="border-r" />
@@ -269,7 +269,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptio
               <td className="border-r" />
               <td className="border-r px-2 text-right tabular-nums">{formatCurrency(totals.debit)}</td>
               <td className="border-r px-2 text-right tabular-nums">{formatCurrency(totals.credit)}</td>
-              <td />
+              <td colSpan={3} />
             </tr>
           </tfoot>
         </table>

@@ -83,6 +83,27 @@ class CompanyDossierTest extends TestCase
     }
 
     #[Test]
+    public function it_resolves_a_slug_on_the_company_header(): void
+    {
+        $this->asCompany('jony-travel')->postJson('/api/journal-entries', [
+            'lines' => [
+                ['date' => '2026-04-02', 'journal' => 'ACH', 'facture' => 'JT-SLUG', 'compte' => '6111', 'debit' => 10, 'credit' => 0, 'tva' => 20],
+                ['date' => '2026-04-02', 'journal' => 'ACH', 'facture' => 'JT-SLUG', 'compte' => '4411', 'debit' => 0, 'credit' => 10, 'tva' => 20],
+            ],
+        ])->assertCreated();
+
+        $this->getJson('/api/journal-entries', [
+            'X-Company-Id' => 'jony-travel',
+            'X-Actor-Name' => 'Sara',
+        ])->assertOk()->assertJsonPath('0.reference_piece', 'JT-SLUG');
+
+        $this->getJson('/api/journal-entries', [
+            'X-Company-Id' => 'astrolabe-voyage',
+            'X-Actor-Name' => 'Sara',
+        ])->assertOk()->assertExactJson([]);
+    }
+
+    #[Test]
     public function selecting_a_dossier_is_logged(): void
     {
         $company = Company::query()->where('slug', 'astrolabe-voyage')->firstOrFail();

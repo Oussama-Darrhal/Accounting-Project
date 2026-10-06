@@ -28,10 +28,16 @@ class SetCurrentCompany
     private function resolve(Request $request): ?Company
     {
         $header = $request->header('X-Company-Id');
-        if ($header) {
+        if (is_string($header) && $header !== '') {
+            // Postgres rejects `where id = 'jony-travel'` (bigint). Match slug always;
+            // only compare id when the header is a numeric primary key.
             return Company::query()
-                ->where('id', $header)
-                ->orWhere('slug', $header)
+                ->where(function ($query) use ($header) {
+                    $query->where('slug', $header);
+                    if (ctype_digit($header)) {
+                        $query->orWhere('id', (int) $header);
+                    }
+                })
                 ->first();
         }
 

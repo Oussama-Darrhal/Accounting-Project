@@ -29,7 +29,7 @@ export const useAccountingStore = create(
         });
       },
       hydrateFromApi: async () => {
-        set({ syncStatus: "loading", syncError: null });
+        set({ journalEntries: [], alerts: EMPTY_ALERTS, syncStatus: "loading", syncError: null });
         try {
           const [journalEntries, alerts] = await Promise.all([fetchJournalEntries(), fetchDashboardAlerts()]);
           set({ journalEntries, alerts, syncStatus: "ready", syncError: null });

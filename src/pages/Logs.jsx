@@ -34,6 +34,7 @@ export default function Logs() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setRows([]);
     fetchActivityLogs()
       .then((data) => {
         if (!cancelled) setRows(data);

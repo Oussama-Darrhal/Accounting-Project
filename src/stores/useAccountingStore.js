@@ -1,38 +1,74 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { payloadIsDraft } from "@/lib/ledger";
+import { fetchDashboardAlerts, fetchJournalEntries, postJournalEntry } from "@/services/journalApi";
+
+const EMPTY_ALERTS = { drafts: 0, late_invoices: 0, solde_restant: "0.00" };
 
 /**
  * Shared journal for saisie, the dashboard, and the grand livre.
- * `draftLines` is the grid currently being typed.
- * `journalEntries` is what Enregistrer / Brouillon has committed.
- * An entry with is_draft true is unbalanced and stays off the grand livre.
+ * Open grid drafts are keyed by company so dossiers stay isolated.
+ * `journalEntries` and `alerts` come from the Laravel API for the current dossier.
  */
 export const useAccountingStore = create(
   persist(
     (set, get) => ({
       journalEntries: [],
-      draftLines: null,
+      alerts: EMPTY_ALERTS,
+      draftLinesByCompany: {},
       hasHydrated: false,
+      syncStatus: "idle",
+      syncError: null,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
-      setDraftLines: (draftLines) => set({ draftLines }),
-      saveJournalEntry: (payload) => {
-        const lines = payload?.lines ?? [];
-        const entry = {
-          id: `EC-${Date.now()}`,
-          is_draft: payloadIsDraft(lines),
-          savedAt: new Date().toISOString(),
-          lines,
-        };
-        set({ journalEntries: [entry, ...get().journalEntries] });
+      setDraftLines: (companyId, draftLines) => {
+        if (!companyId) return;
+        set({
+          draftLinesByCompany: {
+            ...get().draftLinesByCompany,
+            [String(companyId)]: draftLines,
+          },
+        });
+      },
+      hydrateFromApi: async () => {
+        set({ journalEntries: [], alerts: EMPTY_ALERTS, syncStatus: "loading", syncError: null });
+        try {
+          const [journalEntries, alerts] = await Promise.all([fetchJournalEntries(), fetchDashboardAlerts()]);
+          set({ journalEntries, alerts, syncStatus: "ready", syncError: null });
+        } catch (error) {
+          set({
+            journalEntries: [],
+            alerts: EMPTY_ALERTS,
+            syncStatus: "error",
+            syncError: error instanceof Error ? error.message : "API injoignable",
+          });
+        }
+      },
+      saveJournalEntry: async (payload) => {
+        const entry = await postJournalEntry(payload);
+        set({
+          journalEntries: [entry, ...get().journalEntries.filter((existing) => existing.id !== entry.id)],
+        });
+        try {
+          const alerts = await fetchDashboardAlerts();
+          set({ alerts, syncStatus: "ready", syncError: null });
+        } catch {
+          set({
+            alerts: {
+              ...get().alerts,
+              drafts: entry.is_draft ? get().alerts.drafts + 1 : get().alerts.drafts,
+            },
+          });
+        }
         return entry;
       },
     }),
     {
       name: "compta-mvp:accounting",
+      version: 3,
+      migrate: () => ({
+        draftLinesByCompany: {},
+      }),
       partialize: (state) => ({
-        journalEntries: state.journalEntries,
-        draftLines: state.draftLines,
+        draftLinesByCompany: state.draftLinesByCompany,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
@@ -40,3 +76,11 @@ export const useAccountingStore = create(
     }
   )
 );
+
+if (typeof window !== "undefined" && !useAccountingStore.getState().hasHydrated) {
+  queueMicrotask(() => {
+    if (!useAccountingStore.getState().hasHydrated) {
+      useAccountingStore.setState({ hasHydrated: true });
+    }
+  });
+}

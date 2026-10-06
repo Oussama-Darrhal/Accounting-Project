@@ -32,7 +32,7 @@ export function EntryForm({ journal }) {
     const { debit: totalDebit, credit: totalCredit } = totals;
     setSaving(true);
     try {
-      const saved = useAccountingStore.getState().saveJournalEntry(buildJournalPayload(journalLines));
+      const saved = await useAccountingStore.getState().saveJournalEntry(buildJournalPayload(journalLines));
       const countLabel = `${saved.lines.length} ligne${saved.lines.length > 1 ? "s" : ""} · ${formatCurrency(totalDebit)}`;
       if (saved.is_draft) {
         toast({
@@ -49,8 +49,12 @@ export function EntryForm({ journal }) {
         });
       }
       reset();
-    } catch {
-      toast({ variant: "error", title: "Échec de l'enregistrement", description: "Veuillez réessayer." });
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Échec de l'enregistrement",
+        description: error instanceof Error ? error.message : "Veuillez réessayer.",
+      });
     } finally {
       setSaving(false);
     }

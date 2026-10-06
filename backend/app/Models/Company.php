@@ -4,9 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'ice', 'fiscal_id', 'fiscal_start', 'fiscal_end', 'default_tva_rate', 'currency'])]
+#[Fillable(['name', 'slug', 'umbrella', 'ice', 'fiscal_id', 'fiscal_start', 'fiscal_end', 'default_tva_rate', 'currency'])]
 class Company extends Model
 {
     protected function casts(): array
@@ -23,6 +24,11 @@ class Company extends Model
         return $this->hasMany(User::class);
     }
 
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
     public function journals(): HasMany
     {
         return $this->hasMany(Journal::class);
@@ -36,5 +42,10 @@ class Company extends Model
     public function journalEntries(): HasMany
     {
         return $this->hasMany(JournalEntry::class);
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
     }
 }

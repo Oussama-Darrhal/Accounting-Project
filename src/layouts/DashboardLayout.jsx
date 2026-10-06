@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { AccountingSync } from "@/components/AccountingSync";
 import { PageLoader } from "@/components/PageLoader";
 import { Header } from "@/layouts/Header";
 import { Sidebar } from "@/layouts/Sidebar";
@@ -28,6 +29,7 @@ export default function DashboardLayout() {
         Aller au contenu
       </a>
 
+      <AccountingSync />
       <Sidebar
         collapsed={collapsed}
         onExpand={expandSidebar}

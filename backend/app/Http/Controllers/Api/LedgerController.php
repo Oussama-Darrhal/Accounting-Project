@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Company;
 use App\Models\JournalLine;
+use App\Support\CurrentCompany;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +13,7 @@ class LedgerController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $companyId = Company::query()->value('id');
+        $companyId = CurrentCompany::from($request)->id;
         $account = $request->query('account', 'all');
         $from = $request->query('from');
         $to = $request->query('to');

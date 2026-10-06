@@ -72,7 +72,7 @@ export default function GrandLivre() {
             <option value="all">Tous les comptes</option>
             {ledgerAccounts.map((code) => (
               <option key={code} value={code}>
-                {code} — {ACCOUNT_LABELS[code]}
+                {ACCOUNT_LABELS[code] ? `${code} — ${ACCOUNT_LABELS[code]}` : code}
               </option>
             ))}
           </Select>

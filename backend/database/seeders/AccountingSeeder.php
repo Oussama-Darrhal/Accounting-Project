@@ -12,27 +12,64 @@ use Illuminate\Support\Facades\Hash;
 
 class AccountingSeeder extends Seeder
 {
+    public const UMBRELLA = 'Groupe';
+
+    /** @var list<array{slug: string, name: string}> */
+    public const COMPANIES = [
+        ['slug' => 'jony-travel', 'name' => 'Jony Travel'],
+        ['slug' => 'astrolabe-voyage', 'name' => 'Astrolabe Voyage'],
+        ['slug' => 'cg-mobility', 'name' => 'CG Mobility'],
+    ];
+
     public function run(): void
     {
-        $company = Company::query()->first() ?? Company::query()->create([
-            'name' => 'Atlas Conseil SARL',
-            'ice' => '001234567000089',
-            'fiscal_id' => '40123456',
-            'fiscal_start' => '2026-01-01',
-            'fiscal_end' => '2026-12-31',
-            'default_tva_rate' => 20,
-            'currency' => 'MAD',
-        ]);
+        $this->seedPcmClasses();
 
-        if (! User::query()->where('email', 'sara@cabinet.ma')->exists()) {
-            User::query()->create([
-                'company_id' => $company->id,
+        $atlas = Company::query()->where('name', 'Atlas Conseil SARL')->first();
+        if ($atlas) {
+            $atlas->update([
+                'name' => 'Jony Travel',
+                'slug' => 'jony-travel',
+                'umbrella' => self::UMBRELLA,
+                'ice' => null,
+                'fiscal_id' => null,
+            ]);
+        }
+
+        $companies = [];
+        foreach (self::COMPANIES as $row) {
+            $company = Company::query()->updateOrCreate(
+                ['slug' => $row['slug']],
+                [
+                    'name' => $row['name'],
+                    'umbrella' => self::UMBRELLA,
+                    'fiscal_start' => '2026-01-01',
+                    'fiscal_end' => '2026-12-31',
+                    'default_tva_rate' => 20,
+                    'currency' => 'MAD',
+                ]
+            );
+            $this->seedCompanyBooks($company);
+            $companies[] = $company;
+        }
+
+        $user = User::query()->where('email', 'sara@cabinet.ma')->first();
+        if (! $user) {
+            $user = User::query()->create([
+                'company_id' => $companies[0]->id,
                 'name' => 'Sara',
                 'email' => 'sara@cabinet.ma',
                 'password' => Hash::make('demo'),
             ]);
+        } else {
+            $user->update(['company_id' => $companies[0]->id]);
         }
 
+        $user->companies()->sync(array_map(fn (Company $company) => $company->id, $companies));
+    }
+
+    private function seedPcmClasses(): void
+    {
         $classes = [
             1 => 'Classe 1 — Financement permanent',
             2 => 'Classe 2 — Actif immobilisé',
@@ -46,7 +83,10 @@ class AccountingSeeder extends Seeder
         foreach ($classes as $code => $name) {
             PcmClass::query()->updateOrCreate(['code' => $code], ['name' => $name]);
         }
+    }
 
+    private function seedCompanyBooks(Company $company): void
+    {
         $classId = fn (int $code) => PcmClass::query()->where('code', $code)->value('id');
 
         foreach ([

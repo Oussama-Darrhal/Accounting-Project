@@ -4,16 +4,23 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLettrageRequest;
-use App\Models\Company;
+use App\Services\ActivityLogService;
 use App\Services\LettrageService;
+use App\Support\CurrentCompany;
 use Illuminate\Http\JsonResponse;
 
 class LettrageController extends Controller
 {
-    public function store(StoreLettrageRequest $request, LettrageService $service): JsonResponse
+    public function store(StoreLettrageRequest $request, LettrageService $service, ActivityLogService $logs): JsonResponse
     {
-        $company = Company::query()->firstOrFail();
+        $company = CurrentCompany::from($request);
         $result = $service->match($company, $request->validated('line_ids'));
+        $logs->record(
+            $company,
+            'lettrage.matched',
+            'Lettrage '.$result['code'].' enregistré',
+            ['code' => $result['code'], 'line_ids' => $request->validated('line_ids')],
+        );
 
         return response()->json($result, 201);
     }

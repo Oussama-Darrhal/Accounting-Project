@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toCents } from "@/lib/utils";
 import { useAccountingStore } from "@/stores/useAccountingStore";
+import { useCompanyStore } from "@/stores/useCompanyStore";
 
 export const DRAFT_STORAGE_KEY = "saisie_comptable_draft";
 
@@ -55,34 +56,35 @@ function readLegacyDraft() {
 }
 
 export function useJournalLines() {
-  const draftLines = useAccountingStore((state) => state.draftLines);
+  const companyId = useCompanyStore((state) => state.currentCompanyId);
+  const draftLines = useAccountingStore((state) =>
+    companyId ? state.draftLinesByCompany?.[String(companyId)] ?? null : null
+  );
   const hasHydrated = useAccountingStore((state) => state.hasHydrated);
   const setDraftLines = useAccountingStore((state) => state.setDraftLines);
   const [journalLines, setJournalLines] = useState(() => [createEmptyLine()]);
-  const hydratedRef = useRef(false);
+  const hydratedForCompany = useRef(null);
   const skipNextWrite = useRef(false);
 
-  // Wait for Zustand persist, then adopt the stored grid (or the previous localStorage draft).
   useEffect(() => {
-    if (!hasHydrated || hydratedRef.current) return;
-    hydratedRef.current = true;
+    if (!hasHydrated || !companyId) return;
+    if (hydratedForCompany.current === companyId) return;
+    hydratedForCompany.current = companyId;
     const legacy = readLegacyDraft();
     const source = Array.isArray(draftLines) && draftLines.length > 0 ? draftLines : legacy;
-    if (source) {
-      skipNextWrite.current = true;
-      setJournalLines(source.map(restoreLine));
-    }
+    skipNextWrite.current = true;
+    setJournalLines(source && source.length > 0 ? source.map(restoreLine) : [createEmptyLine()]);
     if (legacy) localStorage.removeItem(DRAFT_STORAGE_KEY);
-  }, [hasHydrated, draftLines]);
+  }, [hasHydrated, companyId, draftLines]);
 
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    if (!companyId || hydratedForCompany.current !== companyId) return;
     if (skipNextWrite.current) {
       skipNextWrite.current = false;
       return;
     }
-    setDraftLines(journalLines.every(isLineBlank) ? null : journalLines);
-  }, [journalLines, setDraftLines]);
+    setDraftLines(companyId, journalLines.every(isLineBlank) ? null : journalLines);
+  }, [journalLines, setDraftLines, companyId]);
 
   const updateLine = useCallback((id, field, value) => {
     setJournalLines((current) => current.map((line) => (line.id === id ? { ...line, [field]: value } : line)));

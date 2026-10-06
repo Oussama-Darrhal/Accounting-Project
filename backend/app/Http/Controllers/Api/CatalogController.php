@@ -4,17 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
-use App\Models\Company;
 use App\Models\Journal;
+use App\Support\CurrentCompany;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CatalogController extends Controller
 {
-    public function accounts(): JsonResponse
+    public function accounts(Request $request): JsonResponse
     {
-        $companyId = Company::query()->value('id');
+        $company = CurrentCompany::from($request);
         $accounts = Account::query()
-            ->where('company_id', $companyId)
+            ->where('company_id', $company->id)
             ->with('pcmClass')
             ->orderBy('code')
             ->get()
@@ -29,11 +30,11 @@ class CatalogController extends Controller
         return response()->json(['data' => $accounts]);
     }
 
-    public function journals(): JsonResponse
+    public function journals(Request $request): JsonResponse
     {
-        $companyId = Company::query()->value('id');
+        $company = CurrentCompany::from($request);
         $journals = Journal::query()
-            ->where('company_id', $companyId)
+            ->where('company_id', $company->id)
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
 

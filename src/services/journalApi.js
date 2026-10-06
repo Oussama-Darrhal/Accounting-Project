@@ -1,3 +1,4 @@
+import { actorName, getActiveCompanyId } from "./companyContext.js";
 import { toCents } from "../lib/utils.js";
 
 /** Drops blank rows and converts amounts to numbers, the shape POST /api/journal-entries expects. */
@@ -58,11 +59,15 @@ export function messageFromApiError(payload, status) {
 }
 
 async function apiFetch(path, options = {}) {
+  const companyId = getActiveCompanyId();
+  const actor = actorName();
   const response = await fetch(path, {
     ...options,
     headers: {
       Accept: "application/json",
       ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(companyId ? { "X-Company-Id": companyId } : {}),
+      ...(actor ? { "X-Actor-Name": actor } : {}),
       ...options.headers,
     },
   });
@@ -104,6 +109,51 @@ export async function fetchDashboardAlerts() {
     late_invoices: Number(payload?.late_invoices) || 0,
     solde_restant: payload?.solde_restant ?? "0.00",
   };
+}
+
+export function normalizeCompany(company) {
+  return {
+    id: String(company.id),
+    slug: company.slug,
+    name: company.name,
+    umbrella: company.umbrella || "Groupe",
+    ice: company.ice ?? "",
+    fiscal_id: company.fiscal_id ?? "",
+    fiscal_start: company.fiscal_start ?? "",
+    fiscal_end: company.fiscal_end ?? "",
+    default_tva_rate: String(company.default_tva_rate ?? 20),
+    currency: company.currency || "MAD",
+  };
+}
+
+export async function fetchCompanies() {
+  const payload = await apiFetch("/api/companies");
+  return unwrapList(payload).map(normalizeCompany);
+}
+
+export async function selectCompany(companyId) {
+  const payload = await apiFetch(`/api/companies/${companyId}/select`, { method: "POST" });
+  return normalizeCompany(unwrapEntry(payload));
+}
+
+export async function updateCompany(companyId, body) {
+  const payload = await apiFetch(`/api/companies/${companyId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  return normalizeCompany(unwrapEntry(payload));
+}
+
+export async function fetchActivityLogs() {
+  const payload = await apiFetch("/api/activity-logs");
+  return unwrapList(payload).map((row) => ({
+    id: row.id,
+    action: row.action,
+    message: row.message,
+    actor: row.actor || "",
+    meta: row.meta ?? null,
+    createdAt: row.createdAt ?? row.created_at ?? null,
+  }));
 }
 
 /** @deprecated use postJournalEntry — kept so older imports still hit the API. */

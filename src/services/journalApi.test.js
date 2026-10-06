@@ -10,9 +10,11 @@ import {
   unwrapEntry,
   unwrapList,
 } from "./journalApi.js";
+import { setActiveCompanyId } from "./companyContext.js";
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  setActiveCompanyId(null);
 });
 
 const originalFetch = globalThis.fetch;
@@ -128,5 +130,14 @@ describe("journalApi HTTP", () => {
   it("surfaces a 422 message from Laravel", async () => {
     mockFetch(async () => jsonResponse({ message: "Compte inconnu [9999]." }, 422));
     await assert.rejects(() => fetchJournalEntries(), /Compte inconnu/);
+  });
+
+  it("sends the current dossier on X-Company-Id", async () => {
+    setActiveCompanyId("7");
+    mockFetch(async (_url, options) => {
+      assert.equal(options.headers["X-Company-Id"], "7");
+      return jsonResponse([]);
+    });
+    await fetchJournalEntries();
   });
 });

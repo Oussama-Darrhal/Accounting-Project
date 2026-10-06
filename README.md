@@ -20,7 +20,7 @@ Open http://localhost:8080, log in with any email and a password of 4+ character
 | API (`php artisan serve`) | 8000 |
 | Postgres 16 | 5432 |
 
-Stop with `Ctrl+C`, or `docker compose down`. The database volume `compta_pg` keeps seeded Atlas Conseil data.
+Stop with `Ctrl+C`, or `docker compose down`. The database volume `compta_pg` keeps the three dossiers (Jony Travel, Astrolabe Voyage, CG Mobility).
 
 If port 5432 is already taken by a host Postgres, either stop that instance or change the compose mapping (for example `"5433:5432"`). The API container still talks to `postgres:5432` on the Docker network.
 
@@ -52,18 +52,26 @@ php artisan test
 
 ## What the API is
 
-Double-entry journal for one company file (Atlas Conseil). Money is `DECIMAL(15,2)` in Postgres and compared as integer cents in PHP. `is_draft` is computed on the server: debit cents ≠ credit cents.
+Three independent company files under one umbrella (**Groupe**): **Jony Travel**, **Astrolabe Voyage**, **CG Mobility**. Each has its own journals, plan comptable, écritures, lettrage, alerts, and activity logs.
+
+Every mutating call (except `GET /api/companies`) is scoped by the `X-Company-Id` header (numeric id or slug). The UI switcher in the header sets that dossier.
+
+Money is `DECIMAL(15,2)` in Postgres and compared as integer cents in PHP. `is_draft` is computed on the server: debit cents ≠ credit cents.
 
 Auxiliary tiers accounts are children of `3421` / `4411` (`44110001` + name), not codes like `4411-Oasis`.
 
 Law 69-21 delay is **invoice `date_piece` → payment `date_piece`**. `due_date` (invoice date + 60 days by default) feeds the dashboard alert.
 
-The React store hydrates from `GET /api/journal-entries` and `GET /api/dashboard/alerts`. Saisie `Enregistrer` / `Brouillon` calls `POST /api/journal-entries`. Open grid lines stay in localStorage; posted journal data does not.
+The React store hydrates from `GET /api/journal-entries` and `GET /api/dashboard/alerts` for the current dossier. Saisie `Enregistrer` / `Brouillon` calls `POST /api/journal-entries`. Open grid lines stay in localStorage **per company**; posted journal data does not.
 
 ### Endpoints (`/api`)
 
 | Method | Path | Role |
 |---|---|---|
+| GET | `/companies` | Jony Travel, Astrolabe Voyage, CG Mobility |
+| POST | `/companies/{id}/select` | Log “dossier ouvert” |
+| PUT | `/companies/{id}` | Paramètres of the current dossier |
+| GET | `/activity-logs` | Logs of the current dossier |
 | GET | `/accounts` | Plan comptable |
 | GET | `/journals` | ACH, VT, BQ, OD |
 | POST | `/journal-entries` | Same payload as the React `buildJournalPayload` |

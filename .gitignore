@@ -1,3 +1,10 @@
 node_modules
 dist
 *.local
+backend/vendor
+backend/.env
+backend/node_modules
+backend/storage/*.key
+backend/.phpunit.cache
+backend/.phpunit.result.cache
+

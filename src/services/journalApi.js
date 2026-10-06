@@ -18,7 +18,7 @@ export function buildJournalPayload(journalLines) {
   };
 }
 
-/** Mock API: replace with a real POST once the backend exists. */
+/** Mock API: POST /api/journal-entries on the Laravel app matches this payload. */
 export async function saveJournalEntry(payload) {
   await new Promise((resolve) => setTimeout(resolve, 400));
   console.log("Saved payload:", payload);

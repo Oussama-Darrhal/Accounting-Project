@@ -4,6 +4,52 @@ Monorepo: React frontend (this folder) and Laravel API (`backend/`).
 
 Rename the GitHub repository to `Accounting-Project` in Settings when you can. The code already holds both sides.
 
+## Run locally with Docker
+
+Postgres, the API, and the built UI on one command. The nginx container serves the app on **http://localhost:8080** and proxies `/api` to Laravel.
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:8080, log in with any email and a password of 4+ characters, then saisie → enregistrer. Posted entries show on the dashboard and the grand livre.
+
+| Service | Port |
+|---|---|
+| Web (nginx + React build) | 8080 |
+| API (`php artisan serve`) | 8000 |
+| Postgres 16 | 5432 |
+
+Stop with `Ctrl+C`, or `docker compose down`. The database volume `compta_pg` keeps seeded Atlas Conseil data.
+
+If port 5432 is already taken by a host Postgres, either stop that instance or change the compose mapping (for example `"5433:5432"`). The API container still talks to `postgres:5432` on the Docker network.
+
+## Frontend without Docker
+
+```bash
+npm install
+npm run dev
+```
+
+Vite on http://localhost:5173. It proxies `/api` to http://127.0.0.1:8000, so run the API (Docker `api`+`postgres`, or `php artisan serve` on the host).
+
+## Backend without the web container
+
+Needs PHP 8.3, Composer, PostgreSQL 16.
+
+```bash
+docker compose up -d postgres
+cd backend
+cp .env.example .env
+composer install
+php artisan key:generate
+php artisan migrate --seed
+php artisan serve               # http://localhost:8000
+php artisan test
+```
+
+`.env.example` is already set for user/db `compta` / `compta`.
+
 ## What the API is
 
 Double-entry journal for one company file (Atlas Conseil). Money is `DECIMAL(15,2)` in Postgres and compared as integer cents in PHP. `is_draft` is computed on the server: debit cents ≠ credit cents.
@@ -12,29 +58,7 @@ Auxiliary tiers accounts are children of `3421` / `4411` (`44110001` + name), no
 
 Law 69-21 delay is **invoice `date_piece` → payment `date_piece`**. `due_date` (invoice date + 60 days by default) feeds the dashboard alert.
 
-## Frontend
-
-```bash
-npm install
-npm run dev
-```
-
-Vite on http://localhost:5173. The UI still uses the Zustand store until `src/services/journalApi.js` is pointed at this API.
-
-## Backend
-
-Needs PHP 8.3, Composer, PostgreSQL 16.
-
-```bash
-docker compose up -d postgres   # or a local Postgres
-cd backend
-cp .env.example .env            # already set for user/db compta / compta
-composer install
-php artisan key:generate
-php artisan migrate --seed
-php artisan serve               # http://localhost:8000
-php artisan test
-```
+The React store hydrates from `GET /api/journal-entries` and `GET /api/dashboard/alerts`. Saisie `Enregistrer` / `Brouillon` calls `POST /api/journal-entries`. Open grid lines stay in localStorage; posted journal data does not.
 
 ### Endpoints (`/api`)
 
@@ -69,14 +93,16 @@ POST `/journal-entries` body:
 }
 ```
 
-Auth is not required yet (one seeded company). Sanctum is installed for the next step.
+Auth is not required yet (one seeded company). Sanctum is installed for the next step. The login screen is still dummy.
 
 ## Layout
 
 ```
 src/                 React app
 backend/             Laravel 13 API
-docker-compose.yml   Postgres 16
+Dockerfile           nginx + Vite build
+backend/Dockerfile  PHP 8.3 + Composer
+docker-compose.yml   Postgres 16 + api + web
 ```
 
 Laravel 11 was requested; Composer blocks it on security advisories. This app is Laravel 13, same routing and Eloquent style.

@@ -7,9 +7,9 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ACCOUNTING_ALERTS } from "@/data/alerts";
+import { dashboardAlertsFromApi } from "@/data/alerts";
 import { DAILY_FINANCIALS, DATA_START_DATE } from "@/data/mockData";
-import { draftCount, recentEntriesFromJournal } from "@/lib/ledger";
+import { recentEntriesFromJournal } from "@/lib/ledger";
 import { useAccountingStore } from "@/stores/useAccountingStore";
 import { downloadFile, toCSV } from "@/lib/csv";
 import { DEFAULT_PRESET_ID, formatFileDate, formatRange, getPresetRange, getPreviousRange } from "@/lib/dateRange";
@@ -20,12 +20,6 @@ const STATIC_TASKS = [
   { icon: Link2, label: "Écritures non lettrées", count: 7, to: "/lettrage" },
   { icon: Receipt, label: "Déclaration TVA — échéance 20/10", count: 1, to: "/grand-livre" },
 ];
-
-function draftLabel(count) {
-  if (count === 0) return "Aucun brouillon à corriger";
-  if (count === 1) return "1 Brouillon à corriger";
-  return `${count} Brouillons à corriger`;
-}
 
 const GRANULARITY_CHART_LABELS = { day: "jour", week: "semaine", month: "mois" };
 
@@ -84,17 +78,12 @@ function RevenueTrend({ change }) {
 export default function Dashboard() {
   const [activeDateRange, setActiveDateRange] = useState(() => getPresetRange(DEFAULT_PRESET_ID));
   const journalEntries = useAccountingStore((state) => state.journalEntries);
-  const brouillons = draftCount(journalEntries);
+  const apiAlerts = useAccountingStore((state) => state.alerts);
+  const syncStatus = useAccountingStore((state) => state.syncStatus);
+  const syncError = useAccountingStore((state) => state.syncError);
+  const brouillons = apiAlerts.drafts;
   const recentEntries = recentEntriesFromJournal(journalEntries);
-  const alerts = ACCOUNTING_ALERTS.map((alert) =>
-    alert.id === "drafts"
-      ? {
-          ...alert,
-          label: draftLabel(brouillons),
-          detail: brouillons ? "Écritures en attente de vérification" : "Aucune écriture déséquilibrée enregistrée",
-        }
-      : alert
-  );
+  const alerts = dashboardAlertsFromApi(apiAlerts);
   const tasks = [
     { icon: FilePen, label: "Brouillons à corriger", count: brouillons, to: "/saisie" },
     ...STATIC_TASKS,
@@ -131,6 +120,12 @@ export default function Dashboard() {
           </>
         }
       />
+
+      {syncStatus === "error" && (
+        <p role="alert" className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          L'API n'est pas joignable{syncError ? ` : ${syncError}` : ""}. Vérifiez que Postgres et Laravel tournent, puis rechargez.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>

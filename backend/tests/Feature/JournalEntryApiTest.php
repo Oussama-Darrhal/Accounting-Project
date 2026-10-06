@@ -44,6 +44,11 @@ class JournalEntryApiTest extends TestCase
         $this->getJson('/api/dashboard/alerts')
             ->assertOk()
             ->assertJsonPath('drafts', 0);
+
+        $this->getJson('/api/journal-entries')
+            ->assertOk()
+            ->assertJsonPath('0.reference_piece', 'FF-0342')
+            ->assertJsonPath('0.is_draft', false);
     }
 
     #[Test]

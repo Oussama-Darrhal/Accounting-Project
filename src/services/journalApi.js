@@ -141,15 +141,6 @@ export async function fetchAccounts() {
   return unwrapList(payload).map(normalizeAccount);
 }
 
-export async function createAccount(body) {
-  const payload = await apiFetch("/api/accounts", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  const account = payload?.data?.id ? payload.data : payload;
-  return normalizeAccount(account);
-}
-
 export async function postLettrage(lineIds) {
   return apiFetch("/api/lettrage", {
     method: "POST",

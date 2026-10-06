@@ -72,12 +72,6 @@ export const useAccountingStore = create(
         }
         return entry;
       },
-      addAccount: (account) => {
-        if (!account?.id) return;
-        const accounts = get().accounts;
-        if (accounts.some((existing) => String(existing.id) === String(account.id))) return;
-        set({ accounts: [...accounts, account] });
-      },
     }),
     {
       name: "compta-mvp:accounting",

@@ -10,17 +10,15 @@ const PREVIEW_DEBOUNCE_MS = 400;
 const COLORS = { text: "#0f172a", muted: "#64748b", border: "#e2e8f0", head: "#f1f5f9", warning: "#b45309", success: "#15803d" };
 
 const COLUMNS = [
-  { key: "date", label: "Date", width: "8%" },
-  { key: "journal", label: "Journal", width: "6%" },
-  { key: "facture", label: "N° Facture", width: "10%" },
-  { key: "libelle", label: "Libellé", width: "13%" },
-  { key: "compte", label: "Compte", width: "13%" },
-  { key: "tiers", label: "Tiers", width: "10%" },
-  { key: "ht", label: "HT", width: "8%", align: "right" },
-  { key: "tva", label: "TVA", width: "6%", align: "right" },
-  { key: "ttc", label: "TTC", width: "8%", align: "right" },
-  { key: "debit", label: "Débit", width: "9%", align: "right" },
-  { key: "credit", label: "Crédit", width: "9%", align: "right" },
+  { key: "date", label: "Date", width: "10%" },
+  { key: "journal", label: "Journal", width: "8%" },
+  { key: "facture", label: "N° Facture", width: "12%" },
+  { key: "compte", label: "Compte", width: "16%" },
+  { key: "ht", label: "HT", width: "10%", align: "right" },
+  { key: "tva", label: "TVA", width: "8%", align: "right" },
+  { key: "ttc", label: "TTC", width: "10%", align: "right" },
+  { key: "debit", label: "Débit", width: "13%", align: "right" },
+  { key: "credit", label: "Crédit", width: "13%", align: "right" },
 ];
 
 const styles = StyleSheet.create({
@@ -55,6 +53,7 @@ export function LiveInvoiceDocument({ data }) {
   const totalDebit = lines.reduce((sum, line) => sum + toCents(line.debit), 0);
   const totalCredit = lines.reduce((sum, line) => sum + toCents(line.credit), 0);
   const gap = totalDebit - totalCredit;
+  const taxLine = lines.find((line) => toCents(line.ht) || toCents(line.ttc));
   const pieces = [...new Set(lines.map((line) => line.facture.trim()).filter(Boolean))];
 
   return (
@@ -64,6 +63,11 @@ export function LiveInvoiceDocument({ data }) {
           <View>
             <Text style={styles.title}>Écriture comptable</Text>
             <Text style={styles.subtitle}>{pieces.length ? `Pièce(s) : ${pieces.join(", ")}` : "Pièce non renseignée"}</Text>
+            {taxLine ? (
+              <Text style={styles.subtitle}>
+                HT {money(toCents(taxLine.ht))} · TVA {taxLine.tva || "0"} % · TTC {money(toCents(taxLine.ttc))}
+              </Text>
+            ) : null}
           </View>
           <Text style={styles.subtitle}>Généré le {new Date().toLocaleDateString("fr-FR")}</Text>
         </View>
@@ -87,9 +91,9 @@ export function LiveInvoiceDocument({ data }) {
         ))}
 
         <View style={[styles.row, styles.totalRow]}>
-          <Text style={[styles.cell, { width: "82%" }]}>Total</Text>
-          <Text style={[styles.cell, { width: "9%", textAlign: "right" }]}>{money(totalDebit)}</Text>
-          <Text style={[styles.cell, { width: "9%", textAlign: "right" }]}>{money(totalCredit)}</Text>
+          <Text style={[styles.cell, { width: "74%" }]}>Total</Text>
+          <Text style={[styles.cell, { width: "13%", textAlign: "right" }]}>{money(totalDebit)}</Text>
+          <Text style={[styles.cell, { width: "13%", textAlign: "right" }]}>{money(totalCredit)}</Text>
         </View>
 
         <Text style={[styles.status, { color: gap === 0 ? COLORS.success : COLORS.warning }]}>
@@ -106,8 +110,11 @@ export function renderInvoiceBlob(data) {
 
 export default function LiveInvoicePDF({ data }) {
   const debouncedData = useDebouncedValue(data, PREVIEW_DEBOUNCE_MS);
+  const signature = debouncedData
+    .map((line) => [line.id, line.ht, line.ttc, line.debit, line.credit, line.tva, line.facture, line.compte].join(":"))
+    .join("|");
   return (
-    <PDFViewer className="h-full w-full rounded-md border-none">
+    <PDFViewer key={signature} className="h-full w-full rounded-md border-none">
       <LiveInvoiceDocument data={debouncedData} />
     </PDFViewer>
   );

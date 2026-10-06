@@ -17,7 +17,6 @@ import { bucketize, filterByRange, GRANULARITY_LABELS, percentChange, summarize 
 import { cn, formatCompact } from "@/lib/utils";
 
 const STATIC_TASKS = [
-  { icon: Link2, label: "Écritures non lettrées", count: 7, to: "/lettrage" },
   { icon: Receipt, label: "Déclaration TVA — échéance 20/10", count: 1, to: "/grand-livre" },
 ];
 
@@ -85,7 +84,8 @@ export default function Dashboard() {
   const recentEntries = recentEntriesFromJournal(journalEntries);
   const alerts = dashboardAlertsFromApi(apiAlerts);
   const tasks = [
-    { icon: FilePen, label: "Brouillons à corriger", count: brouillons, to: "/saisie" },
+    { icon: FilePen, label: "Brouillons à corriger", count: brouillons, to: "/brouillons" },
+    { icon: Link2, label: "Écritures non lettrées", count: apiAlerts.unlettered ?? 0, to: "/lettrage" },
     ...STATIC_TASKS,
   ];
   const { summary, revenueChange, granularity, buckets, chartData } = useDashboardData(activeDateRange);

@@ -12,6 +12,7 @@ describe("dashboard alerts from the API", () => {
   it("labels late invoices and keeps the TVA reminder", () => {
     const alerts = dashboardAlertsFromApi({ drafts: 0, late_invoices: 2, solde_restant: "1500.00" });
     assert.equal(alerts[0].label, "Aucun brouillon à corriger");
+    assert.equal(alerts[0].to, "/brouillons");
     assert.equal(alerts[1].label, lateInvoiceLabel(2));
     assert.match(alerts[1].detail, /1500\.00/);
     assert.equal(alerts[2].id, "vat-declaration");

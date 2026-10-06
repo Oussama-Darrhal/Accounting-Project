@@ -30,7 +30,7 @@ export function dashboardAlertsFromApi(data = {}) {
       label: draftLabel(drafts),
       detail: drafts ? "Écritures en attente de vérification" : "Aucune écriture déséquilibrée enregistrée",
       tone: "warning",
-      to: "/saisie",
+      to: "/brouillons",
     },
     {
       id: "late-invoices",

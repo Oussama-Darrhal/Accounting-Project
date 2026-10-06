@@ -43,4 +43,16 @@ class JournalEntryController extends Controller
 
         return (new JournalEntryResource($entry))->response();
     }
+
+    public function update(StoreJournalEntryRequest $request, string $journalEntry, JournalEntryService $service): JsonResponse
+    {
+        $company = CurrentCompany::from($request);
+        $entry = JournalEntry::query()
+            ->where('company_id', $company->id)
+            ->findOrFail($journalEntry);
+
+        $updated = $service->update($company, $entry, $request->validated());
+
+        return (new JournalEntryResource($updated))->response();
+    }
 }

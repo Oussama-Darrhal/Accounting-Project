@@ -18,6 +18,7 @@ const ACTION_LABELS = {
   "company.opened": "Dossier",
   "company.updated": "Paramètres",
   "lettrage.matched": "Lettrage",
+  "lettrage.unmatched": "Délettrage",
 };
 
 export default function Logs() {

@@ -14,7 +14,7 @@ class LettrageService
 {
     /**
      * @param  list<string>  $lineIds
-     * @return array{code: string, late_payment: ?array{days: int, invoice_date: string, payment_date: string}}
+     * @return array{code: string, remainder: ?array{line_id: string, amount: string, piece: ?string}, late_payment: ?array{days: int, invoice_date: string, payment_date: string}}
      */
     public function match(Company $company, array $lineIds): array
     {
@@ -41,9 +41,11 @@ class LettrageService
             $debit = $lines->sum(fn (JournalLine $line) => Money::toCents($line->debit));
             $credit = $lines->sum(fn (JournalLine $line) => Money::toCents($line->credit));
             if ($debit !== $credit) {
-                throw ValidationException::withMessages([
-                    'line_ids' => 'Le lettrage exige un débit égal au crédit ('.Money::fromCents($debit).' / '.Money::fromCents($credit).').',
-                ]);
+                $remainder = $this->splitRemainder($lines, $debit, $credit);
+                $lines = $remainder['lines'];
+                $remainderPayload = $remainder['remainder'];
+            } else {
+                $remainderPayload = null;
             }
 
             $code = LettrageCode::next(
@@ -63,8 +65,102 @@ class LettrageService
 
             return [
                 'code' => $code,
+                'remainder' => $remainderPayload,
                 'late_payment' => $this->loi69Warning($lines),
             ];
+        });
+    }
+
+    /**
+     * When débit ≠ crédit, split the largest line on the heavier side so the
+     * matched slice letters and the leftover stays unlettered.
+     *
+     * @param  \Illuminate\Support\Collection<int, JournalLine>  $lines
+     * @return array{lines: \Illuminate\Support\Collection<int, JournalLine>, remainder: array{line_id: string, amount: string, piece: ?string}}
+     */
+    private function splitRemainder($lines, int $debit, int $credit): array
+    {
+        $gap = abs($debit - $credit);
+        $heavierIsDebit = $debit > $credit;
+        $candidate = $lines
+            ->filter(function (JournalLine $line) use ($heavierIsDebit, $gap) {
+                $amount = Money::toCents($heavierIsDebit ? $line->debit : $line->credit);
+
+                return $amount >= $gap;
+            })
+            ->sortByDesc(fn (JournalLine $line) => Money::toCents($heavierIsDebit ? $line->debit : $line->credit))
+            ->first();
+
+        if (! $candidate) {
+            throw ValidationException::withMessages([
+                'line_ids' => 'Le reste ('.Money::fromCents($gap).') dépasse chaque ligne du côté le plus élevé. Lettrez d\'abord un montant égal.',
+            ]);
+        }
+
+        $originalDebit = Money::toCents($candidate->debit);
+        $originalCredit = Money::toCents($candidate->credit);
+        $originalAmount = max($originalDebit, $originalCredit);
+        $matchedCents = $originalAmount - $gap;
+        $vatOriginal = Money::toCents($candidate->montant_tva);
+        $vatRemainder = $originalAmount === 0 ? 0 : (int) round($vatOriginal * $gap / $originalAmount);
+        $vatMatched = $vatOriginal - $vatRemainder;
+
+        if ($heavierIsDebit) {
+            $candidate->debit = Money::fromCents($matchedCents);
+            $remainderDebit = Money::fromCents($gap);
+            $remainderCredit = Money::fromCents(0);
+        } else {
+            $candidate->credit = Money::fromCents($matchedCents);
+            $remainderDebit = Money::fromCents(0);
+            $remainderCredit = Money::fromCents($gap);
+        }
+
+        $candidate->montant_tva = Money::fromCents($vatMatched);
+        $candidate->base_ht = Money::fromCents($matchedCents - $vatMatched);
+        $candidate->save();
+
+        $remainderLine = $candidate->entry->lines()->create([
+            'account_id' => $candidate->account_id,
+            'libelle' => rtrim($candidate->libelle).' (reste)',
+            'debit' => $remainderDebit,
+            'credit' => $remainderCredit,
+            'tva_rate' => $candidate->tva_rate,
+            'base_ht' => Money::fromCents($gap - $vatRemainder),
+            'montant_tva' => Money::fromCents($vatRemainder),
+            'due_date' => $candidate->due_date,
+        ]);
+
+        return [
+            'lines' => $lines,
+            'remainder' => [
+                'line_id' => $remainderLine->id,
+                'amount' => Money::fromCents($gap),
+                'piece' => $candidate->entry->reference_piece,
+            ],
+        ];
+    }
+
+    public function unmatch(Company $company, string $code): array
+    {
+        return DB::transaction(function () use ($company, $code) {
+            $lines = JournalLine::query()
+                ->where('lettrage_code', $code)
+                ->whereHas('entry', fn ($query) => $query->where('company_id', $company->id))
+                ->lockForUpdate()
+                ->get();
+
+            if ($lines->isEmpty()) {
+                throw ValidationException::withMessages(['code' => 'Aucune ligne lettrée avec ce code.']);
+            }
+
+            foreach ($lines as $line) {
+                $line->forceFill([
+                    'lettrage_code' => null,
+                    'lettered_at' => null,
+                ])->save();
+            }
+
+            return ['code' => $code, 'cleared' => $lines->count()];
         });
     }
 

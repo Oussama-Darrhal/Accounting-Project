@@ -6,42 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { LEDGER_ENTRIES } from "@/data/mockData";
 import { ACCOUNT_LABELS } from "@/data/planComptable";
+import { lettrageSelection, tiersLinesFromEntries } from "@/lib/lettrage";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { postLettrage, unmatchLettrage } from "@/services/journalApi";
+import { useAccountingStore } from "@/stores/useAccountingStore";
+import { useToast } from "@/components/ui/toaster";
 
 const THIRD_PARTY_ACCOUNTS = ["3421", "4411"];
 
-function letterAt(index) {
-  let n = index;
-  let code = "";
-  do {
-    code = String.fromCharCode(65 + (n % 26)) + code;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return code;
-}
-
-/** First free code in the sequence A…Z, AA, AB…, so codes released by délettrage get reused. */
-function nextLetter(used) {
-  let index = 0;
-  while (used.has(letterAt(index))) index += 1;
-  return letterAt(index);
-}
-
 export default function Lettrage() {
-  const [account, setAccount] = useState(THIRD_PARTY_ACCOUNTS[0]);
+  const journalEntries = useAccountingStore((state) => state.journalEntries);
+  const hydrateFromApi = useAccountingStore((state) => state.hydrateFromApi);
+  const { toast } = useToast();
+  const [account, setAccount] = useState(THIRD_PARTY_ACCOUNTS[1]);
   const [selected, setSelected] = useState(() => new Set());
-  const [letters, setLetters] = useState({});
+  const [saving, setSaving] = useState(false);
 
-  const entries = useMemo(() => LEDGER_ENTRIES.filter((entry) => entry.account === account), [account]);
-
-  const selection = useMemo(() => {
-    const picked = entries.filter((entry) => selected.has(entry.id));
-    const debit = picked.reduce((sum, entry) => sum + entry.debit, 0);
-    const credit = picked.reduce((sum, entry) => sum + entry.credit, 0);
-    return { count: picked.length, debit, credit, canMatch: picked.length >= 2 && debit === credit };
-  }, [entries, selected]);
+  const entries = useMemo(() => tiersLinesFromEntries(journalEntries, account), [journalEntries, account]);
+  const picked = useMemo(() => entries.filter((entry) => selected.has(entry.id) && !entry.lettrage_code), [entries, selected]);
+  const selection = useMemo(() => lettrageSelection(picked), [picked]);
+  const canLetter = selection.canExact || selection.canRemainder;
 
   const toggle = (id) => {
     setSelected((current) => {
@@ -56,25 +41,61 @@ export default function Lettrage() {
     setSelected(new Set());
   };
 
-  const handleMatch = () => {
-    const code = nextLetter(new Set(Object.values(letters)));
-    setLetters((current) => {
-      const next = { ...current };
-      selected.forEach((id) => (next[id] = code));
-      return next;
-    });
-    setSelected(new Set());
+  const handleMatch = async () => {
+    if (!canLetter || saving) return;
+    setSaving(true);
+    try {
+      const result = await postLettrage(picked.map((line) => line.id));
+      const rest = result?.remainder?.amount;
+      toast({
+        variant: rest ? "warning" : "success",
+        title: rest ? `Lettrage ${result.code} avec reste` : `Lettrage ${result.code}`,
+        description: rest
+          ? `Le reste de ${formatCurrency(Number(rest))} reste ouvert sur ${result.remainder.piece || "la pièce"}.`
+          : "Les lignes sélectionnées sont rapprochées.",
+      });
+      if (result?.late_payment?.days) {
+        toast({
+          variant: "warning",
+          title: "Loi 69-21",
+          description: `Règlement ${result.late_payment.days} jours après la facture.`,
+        });
+      }
+      setSelected(new Set());
+      await hydrateFromApi();
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Lettrage impossible",
+        description: error instanceof Error ? error.message : "Veuillez réessayer.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleUnmatch = (code) => {
-    setLetters((current) => Object.fromEntries(Object.entries(current).filter(([, value]) => value !== code)));
+  const handleUnmatch = async (code) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await unmatchLettrage(code);
+      toast({ variant: "success", title: `Lettrage ${code} annulé` });
+      setSelected(new Set());
+      await hydrateFromApi();
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Délettrage impossible",
+        description: error instanceof Error ? error.message : "Veuillez réessayer.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <>
-      <PageHeader
-        description="Rapprochez factures et règlements dont les montants se compensent."
-      />
+      <PageHeader description="Rapprochez factures et règlements du dossier courant. Un paiement partiel laisse un reste ouvert." />
 
       <Card className="mb-4 flex flex-wrap items-end gap-4 p-4">
         <div className="w-full space-y-1.5 sm:w-72">
@@ -88,7 +109,7 @@ export default function Lettrage() {
           </Select>
         </div>
 
-        <dl className="flex gap-6 text-sm" aria-live="polite">
+        <dl className="flex flex-wrap gap-6 text-sm" aria-live="polite">
           <div>
             <dt className="text-xs text-muted-foreground">Sélection</dt>
             <dd className="font-semibold tabular-nums">{selection.count} ligne(s)</dd>
@@ -101,10 +122,17 @@ export default function Lettrage() {
             <dt className="text-xs text-muted-foreground">Crédit</dt>
             <dd className="font-semibold tabular-nums">{formatCurrency(selection.credit)}</dd>
           </div>
+          {selection.canRemainder && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Reste</dt>
+              <dd className="font-semibold tabular-nums text-amber-700">{formatCurrency(selection.remainder)}</dd>
+            </div>
+          )}
         </dl>
 
-        <Button className="ml-auto" onClick={handleMatch} disabled={!selection.canMatch}>
-          <Link2 aria-hidden="true" /> Lettrer la sélection
+        <Button className="ml-auto" onClick={handleMatch} disabled={!canLetter || saving}>
+          <Link2 aria-hidden="true" />
+          {selection.canRemainder ? "Lettrer avec reste" : "Lettrer la sélection"}
         </Button>
       </Card>
 
@@ -118,6 +146,7 @@ export default function Lettrage() {
               </th>
               <th scope="col" className="px-4 py-2.5 font-semibold">Date</th>
               <th scope="col" className="px-4 py-2.5 font-semibold">Pièce</th>
+              <th scope="col" className="px-4 py-2.5 font-semibold">Compte</th>
               <th scope="col" className="px-4 py-2.5 font-semibold">Libellé</th>
               <th scope="col" className="px-4 py-2.5 text-right font-semibold">Débit</th>
               <th scope="col" className="px-4 py-2.5 text-right font-semibold">Crédit</th>
@@ -125,8 +154,15 @@ export default function Lettrage() {
             </tr>
           </thead>
           <tbody>
+            {entries.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
+                  Aucune ligne de tiers validée sur ce dossier.
+                </td>
+              </tr>
+            )}
             {entries.map((entry) => {
-              const letter = letters[entry.id];
+              const letter = entry.lettrage_code;
               const isSelected = selected.has(entry.id);
               return (
                 <tr
@@ -145,6 +181,7 @@ export default function Lettrage() {
                   </td>
                   <td className="px-4 py-2">{formatDate(entry.date)}</td>
                   <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">{entry.piece}</td>
+                  <td className="px-4 py-2 font-mono text-xs">{entry.account}</td>
                   <td className="px-4 py-2">{entry.label}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{entry.debit ? formatCurrency(entry.debit) : ""}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{entry.credit ? formatCurrency(entry.credit) : ""}</td>

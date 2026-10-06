@@ -126,7 +126,7 @@ describe("journalApi HTTP", () => {
       return jsonResponse({ drafts: 2, late_invoices: 1, solde_restant: "150.00" });
     });
     const alerts = await fetchDashboardAlerts();
-    assert.deepEqual(alerts, { drafts: 2, late_invoices: 1, solde_restant: "150.00" });
+    assert.deepEqual(alerts, { drafts: 2, late_invoices: 1, unlettered: 0, solde_restant: "150.00" });
   });
 
   it("surfaces a 422 message from Laravel", async () => {

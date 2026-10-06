@@ -125,6 +125,133 @@ class JournalEntryService
         return $entry;
     }
 
+    /**
+     * Replace the lines of a draft. Posted entries cannot be rewritten.
+     *
+     * @param  array{lines: list<array<string, mixed>>, journal?: string, date_piece?: string, reference_piece?: string}  $payload
+     */
+    public function update(Company $company, JournalEntry $entry, array $payload): JournalEntry
+    {
+        if ($entry->company_id !== $company->id) {
+            throw ValidationException::withMessages(['id' => 'Cette écriture n\'appartient pas au dossier courant.']);
+        }
+        if (! $entry->is_draft) {
+            throw ValidationException::withMessages(['id' => 'Seuls les brouillons peuvent être modifiés.']);
+        }
+
+        $updated = DB::transaction(function () use ($company, $entry, $payload) {
+            $prepared = $this->prepareLines($company, $payload);
+            $header = $prepared['rows'][0];
+            $journal = Journal::query()
+                ->where('company_id', $company->id)
+                ->where('code', $header['journal'])
+                ->first();
+            if (! $journal) {
+                throw ValidationException::withMessages(['journal' => "Journal inconnu [{$header['journal']}]."]);
+            }
+
+            $entry->lines()->delete();
+            $entry->update([
+                'journal_id' => $journal->id,
+                'date_piece' => $payload['date_piece'] ?? $header['date'],
+                'reference_piece' => $payload['reference_piece'] ?? $header['facture'],
+                'is_draft' => $prepared['debit_cents'] !== $prepared['credit_cents'],
+                'debit_total' => Money::fromCents($prepared['debit_cents']),
+                'credit_total' => Money::fromCents($prepared['credit_cents']),
+            ]);
+
+            foreach ($prepared['rows'] as $row) {
+                $entry->lines()->create([
+                    'account_id' => $row['account']->id,
+                    'libelle' => $row['libelle'],
+                    'debit' => $row['debit'],
+                    'credit' => $row['credit'],
+                    'tva_rate' => $row['tva_rate'],
+                    'base_ht' => $row['base_ht'],
+                    'montant_tva' => $row['montant_tva'],
+                    'due_date' => $row['due_date'],
+                ]);
+            }
+
+            return $entry->load(['lines.account.parent', 'journal']);
+        });
+
+        $piece = $updated->reference_piece ? ' · '.$updated->reference_piece : '';
+        $this->logs->record(
+            $company,
+            $updated->is_draft ? 'journal.draft' : 'journal.posted',
+            ($updated->is_draft ? 'Brouillon mis à jour' : 'Brouillon validé').$piece,
+            [
+                'id' => $updated->id,
+                'is_draft' => $updated->is_draft,
+                'reference_piece' => $updated->reference_piece,
+            ],
+        );
+
+        return $updated;
+    }
+
+    /**
+     * @param  array{lines: list<array<string, mixed>>, journal?: string, date_piece?: string, reference_piece?: string}  $payload
+     * @return array{rows: list<array<string, mixed>>, debit_cents: int, credit_cents: int}
+     */
+    private function prepareLines(Company $company, array $payload): array
+    {
+        $lines = $payload['lines'] ?? [];
+        if ($lines === []) {
+            throw ValidationException::withMessages(['lines' => 'Au moins une ligne est obligatoire.']);
+        }
+
+        $prepared = [];
+        $debitCents = 0;
+        $creditCents = 0;
+
+        foreach ($lines as $index => $line) {
+            $debit = Money::toCents($line['debit'] ?? 0);
+            $credit = Money::toCents($line['credit'] ?? 0);
+            if ($debit < 0 || $credit < 0) {
+                throw ValidationException::withMessages(["lines.$index" => 'Les montants ne peuvent pas être négatifs.']);
+            }
+            if ($debit > 0 && $credit > 0) {
+                throw ValidationException::withMessages(["lines.$index" => 'Une ligne ne peut pas porter un débit et un crédit.']);
+            }
+            if ($debit === 0 && $credit === 0) {
+                continue;
+            }
+
+            $account = $this->resolveAccount($company, $line, $index);
+            $date = $line['date'] ?? $payload['date_piece'] ?? null;
+            if (! $date) {
+                throw ValidationException::withMessages(["lines.$index.date" => 'La date est obligatoire.']);
+            }
+
+            $tvaRate = isset($line['tva']) ? (int) $line['tva'] : (isset($line['tva_rate']) ? (int) $line['tva_rate'] : $company->default_tva_rate);
+            $vatCents = $this->vatCents($debit, $credit, $tvaRate);
+
+            $prepared[] = [
+                'account' => $account,
+                'libelle' => $line['libelle'] ?? $line['facture'] ?? 'Écriture',
+                'debit' => Money::fromCents($debit),
+                'credit' => Money::fromCents($credit),
+                'tva_rate' => $tvaRate,
+                'base_ht' => Money::fromCents(max($debit, $credit) - $vatCents),
+                'montant_tva' => Money::fromCents($vatCents),
+                'due_date' => $line['due_date'] ?? ($account->isTiers() ? $this->defaultDueDate($date) : null),
+                'date' => $date,
+                'journal' => $line['journal'] ?? $payload['journal'] ?? 'OD',
+                'facture' => $line['facture'] ?? $payload['reference_piece'] ?? null,
+            ];
+            $debitCents += $debit;
+            $creditCents += $credit;
+        }
+
+        if ($prepared === []) {
+            throw ValidationException::withMessages(['lines' => 'Aucune ligne avec un montant.']);
+        }
+
+        return ['rows' => $prepared, 'debit_cents' => $debitCents, 'credit_cents' => $creditCents];
+    }
+
     private function resolveAccount(Company $company, array $line, int $index): Account
     {
         $code = $line['compte'] ?? $line['account_code'] ?? null;
@@ -145,34 +272,7 @@ class JournalEntryService
             return $account;
         }
 
-        return $this->findOrCreateAuxiliary($account, $tiers);
-    }
-
-    private function findOrCreateAuxiliary(Account $collective, string $tiers): Account
-    {
-        $name = $tiers;
-        if (preg_match('/^\d+\s*[-–]\s*(.+)$/u', $tiers, $match)) {
-            $name = trim($match[1]);
-        }
-
-        $existing = Account::query()
-            ->where('company_id', $collective->company_id)
-            ->where('parent_id', $collective->id)
-            ->where('name', $name)
-            ->first();
-        if ($existing) {
-            return $existing;
-        }
-
-        $suffix = str_pad((string) (Account::query()->where('parent_id', $collective->id)->count() + 1), 4, '0', STR_PAD_LEFT);
-
-        return Account::query()->create([
-            'company_id' => $collective->company_id,
-            'pcm_class_id' => $collective->pcm_class_id,
-            'parent_id' => $collective->id,
-            'code' => $collective->code.$suffix,
-            'name' => $name,
-        ]);
+        return $account->findOrCreateAuxiliary($tiers);
     }
 
     private function vatCents(int $debit, int $credit, int $rate): int

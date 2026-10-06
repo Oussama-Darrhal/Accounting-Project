@@ -1,8 +1,14 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { fetchDashboardAlerts, fetchJournalEntries, postJournalEntry } from "@/services/journalApi";
+import {
+  fetchAccounts,
+  fetchDashboardAlerts,
+  fetchJournalEntries,
+  postJournalEntry,
+  putJournalEntry,
+} from "@/services/journalApi";
 
-const EMPTY_ALERTS = { drafts: 0, late_invoices: 0, solde_restant: "0.00" };
+const EMPTY_ALERTS = { drafts: 0, late_invoices: 0, unlettered: 0, solde_restant: "0.00" };
 
 /**
  * Shared journal for saisie, the dashboard, and the grand livre.
@@ -14,6 +20,7 @@ export const useAccountingStore = create(
     (set, get) => ({
       journalEntries: [],
       alerts: EMPTY_ALERTS,
+      accounts: [],
       draftLinesByCompany: {},
       hasHydrated: false,
       syncStatus: "idle",
@@ -31,19 +38,24 @@ export const useAccountingStore = create(
       hydrateFromApi: async () => {
         set({ journalEntries: [], alerts: EMPTY_ALERTS, syncStatus: "loading", syncError: null });
         try {
-          const [journalEntries, alerts] = await Promise.all([fetchJournalEntries(), fetchDashboardAlerts()]);
-          set({ journalEntries, alerts, syncStatus: "ready", syncError: null });
+          const [journalEntries, alerts, accounts] = await Promise.all([
+            fetchJournalEntries(),
+            fetchDashboardAlerts(),
+            fetchAccounts(),
+          ]);
+          set({ journalEntries, alerts, accounts, syncStatus: "ready", syncError: null });
         } catch (error) {
           set({
             journalEntries: [],
             alerts: EMPTY_ALERTS,
+            accounts: [],
             syncStatus: "error",
             syncError: error instanceof Error ? error.message : "API injoignable",
           });
         }
       },
-      saveJournalEntry: async (payload) => {
-        const entry = await postJournalEntry(payload);
+      saveJournalEntry: async (payload, entryId) => {
+        const entry = entryId ? await putJournalEntry(entryId, payload) : await postJournalEntry(payload);
         set({
           journalEntries: [entry, ...get().journalEntries.filter((existing) => existing.id !== entry.id)],
         });
@@ -59,6 +71,12 @@ export const useAccountingStore = create(
           });
         }
         return entry;
+      },
+      addAccount: (account) => {
+        if (!account?.id) return;
+        const accounts = get().accounts;
+        if (accounts.some((existing) => String(existing.id) === String(account.id))) return;
+        set({ accounts: [...accounts, account] });
       },
     }),
     {

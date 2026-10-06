@@ -51,4 +51,31 @@ class Account extends Model
 
         return str_starts_with($code, '3421') || str_starts_with($code, '4411');
     }
+
+    public function findOrCreateAuxiliary(string $tiers): self
+    {
+        $name = $tiers;
+        if (preg_match('/^\d+\s*[-–]\s*(.+)$/u', $tiers, $match)) {
+            $name = trim($match[1]);
+        }
+
+        $existing = self::query()
+            ->where('company_id', $this->company_id)
+            ->where('parent_id', $this->id)
+            ->where('name', $name)
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $suffix = str_pad((string) (self::query()->where('parent_id', $this->id)->count() + 1), 4, '0', STR_PAD_LEFT);
+
+        return self::query()->create([
+            'company_id' => $this->company_id,
+            'pcm_class_id' => $this->pcm_class_id,
+            'parent_id' => $this->id,
+            'code' => $this->code.$suffix,
+            'name' => $name,
+        ]);
+    }
 }

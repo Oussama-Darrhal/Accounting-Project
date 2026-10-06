@@ -102,13 +102,66 @@ export async function postJournalEntry(payload) {
   return normalizeEntry(unwrapEntry(body));
 }
 
+export async function putJournalEntry(entryId, payload) {
+  const body = await apiFetch(`/api/journal-entries/${entryId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return normalizeEntry(unwrapEntry(body));
+}
+
+export async function fetchJournalEntry(entryId) {
+  const payload = await apiFetch(`/api/journal-entries/${entryId}`);
+  return normalizeEntry(unwrapEntry(payload));
+}
+
 export async function fetchDashboardAlerts() {
   const payload = await apiFetch("/api/dashboard/alerts");
   return {
     drafts: Number(payload?.drafts) || 0,
     late_invoices: Number(payload?.late_invoices) || 0,
+    unlettered: Number(payload?.unlettered) || 0,
     solde_restant: payload?.solde_restant ?? "0.00",
   };
+}
+
+export function normalizeAccount(account) {
+  return {
+    id: String(account.id),
+    code: account.code,
+    name: account.name,
+    parent_id: account.parent_id == null ? null : String(account.parent_id),
+    parent_code: account.parent_code ?? null,
+    class: account.class ?? null,
+  };
+}
+
+export async function fetchAccounts() {
+  const payload = await apiFetch("/api/accounts");
+  return unwrapList(payload).map(normalizeAccount);
+}
+
+export async function createAccount(body) {
+  const payload = await apiFetch("/api/accounts", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  const account = payload?.data?.id ? payload.data : payload;
+  return normalizeAccount(account);
+}
+
+export async function postLettrage(lineIds) {
+  return apiFetch("/api/lettrage", {
+    method: "POST",
+    body: JSON.stringify({ line_ids: lineIds }),
+  });
+}
+
+export async function unmatchLettrage(code) {
+  return apiFetch("/api/lettrage/unmatch", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
 }
 
 export function normalizeCompany(company) {

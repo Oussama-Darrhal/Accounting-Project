@@ -72,14 +72,17 @@ The React store hydrates from `GET /api/journal-entries` and `GET /api/dashboard
 | POST | `/companies/{id}/select` | Log “dossier ouvert” |
 | PUT | `/companies/{id}` | Paramètres of the current dossier |
 | GET | `/activity-logs` | Logs of the current dossier |
-| GET | `/accounts` | Plan comptable |
+| GET | `/accounts` | Plan comptable of the current dossier |
+| POST | `/accounts` | New client/fournisseur (`parent_code` 3421 or 4411 + `name`) |
 | GET | `/journals` | ACH, VT, BQ, OD |
 | POST | `/journal-entries` | Same payload as the React `buildJournalPayload` |
 | GET | `/journal-entries` | List (drafts included) |
 | GET | `/journal-entries/{id}` | Reopen one entry |
+| PUT | `/journal-entries/{id}` | Update a draft (posted entries are rejected) |
 | GET | `/ledger?account=&from=&to=` | Posted lines only |
-| POST | `/lettrage` | `{ "line_ids": ["…", "…"] }` exact debit = credit |
-| GET | `/dashboard/alerts` | `{ drafts, late_invoices, solde_restant }` |
+| POST | `/lettrage` | `{ "line_ids": ["…", "…"] }` equal amounts, or remainder split |
+| POST | `/lettrage/unmatch` | `{ "code": "A" }` |
+| GET | `/dashboard/alerts` | `{ drafts, late_invoices, unlettered, solde_restant }` |
 
 POST `/journal-entries` body:
 

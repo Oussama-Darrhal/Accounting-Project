@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { Download, Search } from "lucide-react";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { ledgerRowsFromEntries } from "@/lib/ledger";
 import { ACCOUNT_LABELS } from "@/data/planComptable";
 import { useAccountingStore } from "@/stores/useAccountingStore";
 import { downloadFile, toCSV } from "@/lib/csv";
+import { DEFAULT_PRESET_ID, getPresetRange } from "@/lib/dateRange";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const CSV_HEADER = ["Date", "Pièce", "Compte", "Débit", "Crédit"];
@@ -24,12 +26,15 @@ export default function GrandLivre() {
   const [account, setAccount] = useState("all");
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
+  const [dateRange, setDateRange] = useState(() => getPresetRange(DEFAULT_PRESET_ID));
 
   const { rows, totals } = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase();
     const filtered = ledgerRows.filter(
       (entry) =>
         (account === "all" || entry.account === account) &&
+        (!dateRange.startDate || entry.date >= dateRange.startDate) &&
+        (!dateRange.endDate || entry.date <= dateRange.endDate) &&
         (!needle || entry.label.toLowerCase().includes(needle) || entry.piece.toLowerCase().includes(needle))
     );
 
@@ -47,7 +52,7 @@ export default function GrandLivre() {
         balance,
       },
     };
-  }, [account, deferredQuery, ledgerRows]);
+  }, [account, deferredQuery, ledgerRows, dateRange]);
 
   const handleExportCSV = () => {
     const lines = rows.map((row) => [formatDate(row.date), row.piece, row.account, row.debit, row.credit]);
@@ -59,9 +64,12 @@ export default function GrandLivre() {
       <PageHeader
         description="Détail des mouvements par compte avec solde progressif."
         actions={
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rows.length === 0}>
+          <>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rows.length === 0}>
             <Download aria-hidden="true" /> Exporter en CSV
-          </Button>
+            </Button>
+          </>
         }
       />
 
@@ -113,7 +121,7 @@ export default function GrandLivre() {
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                   {ledgerRows.length === 0
                     ? "Aucune écriture validée. Enregistrez une écriture équilibrée depuis la saisie."
-                    : "Aucun mouvement ne correspond aux filtres."}
+                    : "Aucun mouvement ne correspond aux filtres (compte, dates ou recherche)."}
                 </td>
               </tr>
             )}

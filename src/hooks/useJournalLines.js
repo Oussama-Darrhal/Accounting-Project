@@ -63,6 +63,7 @@ export function useJournalLines() {
   const hasHydrated = useAccountingStore((state) => state.hasHydrated);
   const setDraftLines = useAccountingStore((state) => state.setDraftLines);
   const [journalLines, setJournalLines] = useState(() => [createEmptyLine()]);
+  const [editingEntryId, setEditingEntryId] = useState(null);
   const hydratedForCompany = useRef(null);
   const skipNextWrite = useRef(false);
 
@@ -73,6 +74,7 @@ export function useJournalLines() {
     const legacy = readLegacyDraft();
     const source = Array.isArray(draftLines) && draftLines.length > 0 ? draftLines : legacy;
     skipNextWrite.current = true;
+    setEditingEntryId(null);
     setJournalLines(source && source.length > 0 ? source.map(restoreLine) : [createEmptyLine()]);
     if (legacy) localStorage.removeItem(DRAFT_STORAGE_KEY);
   }, [hasHydrated, companyId, draftLines]);
@@ -99,6 +101,7 @@ export function useJournalLines() {
   }, []);
 
   const reset = useCallback(() => {
+    setEditingEntryId(null);
     setJournalLines([createEmptyLine()]);
   }, []);
 
@@ -108,6 +111,24 @@ export function useJournalLines() {
       return;
     }
     setJournalLines(lines.map(restoreLine));
+  }, []);
+
+  const loadEntry = useCallback((entry) => {
+    setEditingEntryId(entry?.id ?? null);
+    skipNextWrite.current = true;
+    const source = (entry?.lines ?? []).map((line) => ({
+      id: typeof line.id === "string" ? line.id : createLineId(),
+      date: line.date || entry.date_piece || "",
+      journal: line.journal || entry.journal || "ACH",
+      facture: String(line.facture || entry.reference_piece || ""),
+      libelle: String(line.libelle || ""),
+      compte: String(line.compte || ""),
+      tiers: String(line.tiers || ""),
+      debit: line.debit ? String(line.debit) : "",
+      credit: line.credit ? String(line.credit) : "",
+      tva: String(line.tva ?? 20),
+    }));
+    setJournalLines(source.length > 0 ? source.map(restoreLine) : [createEmptyLine()]);
   }, []);
 
   const totals = useMemo(() => {
@@ -122,5 +143,5 @@ export function useJournalLines() {
     };
   }, [journalLines]);
 
-  return { journalLines, totals, updateLine, addLine, removeLine, reset, replaceLines };
+  return { journalLines, totals, updateLine, addLine, removeLine, reset, replaceLines, loadEntry, editingEntryId };
 }

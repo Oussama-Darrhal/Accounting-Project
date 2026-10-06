@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLettrageRequest;
+use App\Http\Requests\UnmatchLettrageRequest;
 use App\Services\ActivityLogService;
 use App\Services\LettrageService;
 use App\Support\CurrentCompany;
@@ -23,5 +24,19 @@ class LettrageController extends Controller
         );
 
         return response()->json($result, 201);
+    }
+
+    public function unmatch(UnmatchLettrageRequest $request, LettrageService $service, ActivityLogService $logs): JsonResponse
+    {
+        $company = CurrentCompany::from($request);
+        $result = $service->unmatch($company, $request->validated('code'));
+        $logs->record(
+            $company,
+            'lettrage.unmatched',
+            'Lettrage '.$result['code'].' annulé',
+            $result,
+        );
+
+        return response()->json($result);
     }
 }

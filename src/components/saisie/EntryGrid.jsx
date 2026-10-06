@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
-import { ACCOUNT_CLASSES, JOURNALS, TIER_SUGGESTIONS, TVA_RATES } from "@/data/planComptable";
+import { ACCOUNT_CLASSES, JOURNALS, TVA_RATES } from "@/data/planComptable";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const COLUMNS = [
@@ -20,7 +20,7 @@ const COLUMNS = [
 const cellInput =
   "h-9 w-full rounded-none border-0 bg-transparent px-2 text-sm outline-none focus:bg-primary/5 focus:ring-2 focus:ring-inset focus:ring-ring";
 
-const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRemove }) {
+const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRemove, tiersOptions }) {
   const cellProps = (col) => ({
     "data-row": index,
     "data-col": col,
@@ -99,12 +99,12 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
           {...cellProps(5)}
         >
           <option value="">Sélectionner…</option>
-          {line.tiers && !TIER_SUGGESTIONS.includes(line.tiers) && (
+          {line.tiers && !tiersOptions.includes(line.tiers) && (
             <option value={line.tiers} className="text-foreground">
               {line.tiers}
             </option>
           )}
-          {TIER_SUGGESTIONS.map((suggestion) => (
+          {tiersOptions.map((suggestion) => (
             <option key={suggestion} value={suggestion} className="text-foreground">
               {suggestion}
             </option>
@@ -160,7 +160,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
   );
 });
 
-export function EntryGrid({ lines, totals, onChange, onAdd, onRemove }) {
+export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptions = [] }) {
   const tableRef = useRef(null);
   const pendingFocus = useRef(null);
 
@@ -222,6 +222,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove }) {
                 line={line}
                 index={index}
                 canRemove={lines.length > 1}
+                tiersOptions={tiersOptions}
                 onChange={onChange}
                 onRemove={onRemove}
               />

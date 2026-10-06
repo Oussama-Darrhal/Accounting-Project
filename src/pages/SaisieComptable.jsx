@@ -1,24 +1,34 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeftRight, FilePlus2, FileText, FileUp, LoaderCircle, Minimize2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EntryForm } from "@/components/saisie/EntryForm";
 import { InvoiceViewer } from "@/components/saisie/InvoiceViewer";
+import { NewTierDialog } from "@/components/saisie/NewTierDialog";
 import { SaisieToolbar } from "@/components/saisie/SaisieToolbar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
-import { useJournalLines } from "@/hooks/useJournalLines";
+import { isLineBlank, useJournalLines } from "@/hooks/useJournalLines";
 import { parseInvoiceText } from "@/lib/invoiceParse";
 import { cn } from "@/lib/utils";
+import { fetchJournalEntry } from "@/services/journalApi";
+import { useAccountingStore } from "@/stores/useAccountingStore";
 
 export default function SaisieComptable() {
-  const [documentMode, setDocumentMode] = useState(null);
+  const [searchParams] = useSearchParams();
+  const brouillonId = searchParams.get("brouillon");
+  const [documentMode, setDocumentMode] = useState(brouillonId ? "new" : null);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [reading, setReading] = useState(false);
+  const [tierOpen, setTierOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const replaceOnlyRef = useRef(false);
+  const loadedBrouillon = useRef(null);
   const dialogRef = useRef(null);
   const [swapped, setSwapped] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
   const journal = useJournalLines();
+  const drafts = useAccountingStore((state) => state.journalEntries.filter((entry) => entry.is_draft));
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,6 +43,33 @@ export default function SaisieComptable() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [enlarged]);
+
+  useEffect(() => {
+    if (!brouillonId || loadedBrouillon.current === brouillonId) return undefined;
+    loadedBrouillon.current = brouillonId;
+    setDocumentMode("new");
+    let cancelled = false;
+    fetchJournalEntry(brouillonId)
+      .then((entry) => {
+        if (cancelled) return;
+        journal.loadEntry(entry);
+        toast({
+          title: "Brouillon rouvert",
+          description: entry.reference_piece ? `Pièce ${entry.reference_piece}` : "Corrigez les lignes puis enregistrez.",
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        toast({
+          variant: "error",
+          title: "Brouillon introuvable",
+          description: error instanceof Error ? error.message : "Impossible de charger l'écriture.",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [brouillonId, journal, toast]);
 
   const ingestFile = async (file) => {
     if (!file || reading) return;
@@ -79,14 +116,46 @@ export default function SaisieComptable() {
     }
   };
 
+  const replacePdf = (file) => {
+    if (!file) return;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      toast({ variant: "error", title: "Format non pris en charge", description: "Déposez une facture au format PDF." });
+      return;
+    }
+    if (journal.journalLines.every(isLineBlank)) {
+      ingestFile(file);
+      return;
+    }
+    setUploadedFile(file);
+    setDocumentMode("uploaded");
+    toast({ title: "PDF remplacé", description: "Les lignes déjà saisies sont conservées." });
+  };
+
   const handleFileChange = (event) => {
     const [file] = event.target.files ?? [];
     event.target.value = "";
+    if (replaceOnlyRef.current) {
+      replaceOnlyRef.current = false;
+      replacePdf(file);
+      return;
+    }
     ingestFile(file);
   };
 
-  // Keyed children let React move the real DOM nodes on swap (tab order follows the visual order).
-  const viewer = <InvoiceViewer key="viewer" journalLines={journal.journalLines} uploadedFile={uploadedFile} />;
+  const openChangePdf = () => {
+    replaceOnlyRef.current = true;
+    fileInputRef.current?.click();
+  };
+
+  const viewer = (
+    <InvoiceViewer
+      key="viewer"
+      journalLines={journal.journalLines}
+      uploadedFile={uploadedFile}
+      onChangePdf={openChangePdf}
+    />
+  );
   const form = <EntryForm key="form" journal={journal} />;
   const panels = swapped ? [form, viewer] : [viewer, form];
 
@@ -113,6 +182,7 @@ export default function SaisieComptable() {
         </div>
 
         <div className="min-h-96 md:h-full md:min-h-0 [&>section]:h-full md:[&>section]:min-h-0">{panels[1]}</div>
+        <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" className="sr-only" onChange={handleFileChange} />
       </div>
     );
   }
@@ -162,14 +232,21 @@ export default function SaisieComptable() {
               </Button>
             </div>
 
+            {drafts.length > 0 && (
+              <p className="mt-4 text-sm text-muted-foreground">
+                {drafts.length} brouillon{drafts.length > 1 ? "s" : ""} en attente.{" "}
+                <Link to="/brouillons" className="font-medium text-primary hover:underline">
+                  Ouvrir la liste
+                </Link>
+              </p>
+            )}
+
             {reading && (
               <p role="status" className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                 <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
                 Lecture de la facture et remplissage des champs…
               </p>
             )}
-
-            <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" className="sr-only" onChange={handleFileChange} />
           </div>
         </div>
       )}
@@ -181,11 +258,16 @@ export default function SaisieComptable() {
         enlarged={enlarged}
         onSwap={() => setSwapped((value) => !value)}
         onToggleEnlarge={() => setEnlarged((value) => !value)}
+        onChangePdf={openChangePdf}
+        onNewTier={() => setTierOpen(true)}
       />
 
       <div className={cn("grid grid-cols-1 gap-4 md:h-[calc(100vh-15rem)] md:min-h-[520px] md:grid-cols-2")}>
         {panels}
       </div>
+
+      <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" className="sr-only" onChange={handleFileChange} />
+      <NewTierDialog open={tierOpen} onClose={() => setTierOpen(false)} />
     </>
   );
 }

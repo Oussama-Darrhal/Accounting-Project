@@ -4,9 +4,9 @@ export function ledgerRowsFromEntries(journalEntries) {
     .filter((entry) => entry && !entry.is_draft)
     .flatMap((entry) =>
       (entry.lines ?? []).map((line, index) => ({
-        id: `${entry.id}-${index}`,
+        id: line.id || `${entry.id}-${index}`,
         date: line.date,
-        piece: line.facture || entry.id,
+        piece: line.facture || entry.reference_piece || entry.id,
         account: line.compte,
         label: line.libelle || line.tiers || "",
         debit: Number(line.debit) || 0,

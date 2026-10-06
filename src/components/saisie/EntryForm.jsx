@@ -6,12 +6,16 @@ import { EntryGrid } from "@/components/saisie/EntryGrid";
 import { SaveButton } from "@/components/saisie/SaveButton";
 import { hasAmount } from "@/hooks/useJournalLines";
 import { formatCurrency } from "@/lib/utils";
+import { TIER_SUGGESTIONS } from "@/data/planComptable";
+import { tiersOptionLabels } from "@/lib/lettrage";
 import { buildJournalPayload } from "@/services/journalApi";
 import { useAccountingStore } from "@/stores/useAccountingStore";
 
 /** @param journal Return value of useJournalLines(), owned by the Saisie page so the PDF preview shares it. */
 export function EntryForm({ journal }) {
-  const { journalLines, totals, updateLine, addLine, removeLine, reset } = journal;
+  const { journalLines, totals, updateLine, addLine, removeLine, reset, editingEntryId } = journal;
+  const accounts = useAccountingStore((state) => state.accounts);
+  const tiersOptions = [...new Set([...TIER_SUGGESTIONS, ...tiersOptionLabels(accounts)])];
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -32,12 +36,12 @@ export function EntryForm({ journal }) {
     const { debit: totalDebit, credit: totalCredit } = totals;
     setSaving(true);
     try {
-      const saved = await useAccountingStore.getState().saveJournalEntry(buildJournalPayload(journalLines));
+      const saved = await useAccountingStore.getState().saveJournalEntry(buildJournalPayload(journalLines), editingEntryId);
       const countLabel = `${saved.lines.length} ligne${saved.lines.length > 1 ? "s" : ""} · ${formatCurrency(totalDebit)}`;
       if (saved.is_draft) {
         toast({
           variant: "warning",
-          title: "Brouillon enregistré",
+          title: editingEntryId ? "Brouillon mis à jour" : "Brouillon enregistré",
           description: `${countLabel}. Écart ${formatCurrency(Math.abs(totals.difference))}. Le compteur du tableau de bord est à jour. Cette écriture n'entre pas au grand livre.`,
           duration: 8000,
         });
@@ -89,6 +93,7 @@ export function EntryForm({ journal }) {
           onChange={updateLine}
           onAdd={addLine}
           onRemove={removeLine}
+          tiersOptions={tiersOptions}
         />
 
         <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t pt-3">

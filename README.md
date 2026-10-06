@@ -98,7 +98,9 @@ POST `/journal-entries` body:
       "tiers": "4411 - Sud Import",
       "debit": 12500,
       "credit": 0,
-      "tva": 20
+      "tva": 20,
+      "ht": 12500,
+      "ttc": 15000
     }
   ]
 }

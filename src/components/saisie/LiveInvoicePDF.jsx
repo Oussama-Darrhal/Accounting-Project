@@ -10,14 +10,17 @@ const PREVIEW_DEBOUNCE_MS = 400;
 const COLORS = { text: "#0f172a", muted: "#64748b", border: "#e2e8f0", head: "#f1f5f9", warning: "#b45309", success: "#15803d" };
 
 const COLUMNS = [
-  { key: "date", label: "Date", width: "10%" },
-  { key: "journal", label: "Journal", width: "7%" },
-  { key: "facture", label: "N° Facture", width: "12%" },
-  { key: "libelle", label: "Libellé", width: "16%" },
-  { key: "compte", label: "Compte", width: "17%" },
-  { key: "tiers", label: "Tiers", width: "12%" },
-  { key: "debit", label: "Débit", width: "13%", align: "right" },
-  { key: "credit", label: "Crédit", width: "13%", align: "right" },
+  { key: "date", label: "Date", width: "8%" },
+  { key: "journal", label: "Journal", width: "6%" },
+  { key: "facture", label: "N° Facture", width: "10%" },
+  { key: "libelle", label: "Libellé", width: "13%" },
+  { key: "compte", label: "Compte", width: "13%" },
+  { key: "tiers", label: "Tiers", width: "10%" },
+  { key: "ht", label: "HT", width: "8%", align: "right" },
+  { key: "tva", label: "TVA", width: "6%", align: "right" },
+  { key: "ttc", label: "TTC", width: "8%", align: "right" },
+  { key: "debit", label: "Débit", width: "9%", align: "right" },
+  { key: "credit", label: "Crédit", width: "9%", align: "right" },
 ];
 
 const styles = StyleSheet.create({
@@ -39,7 +42,8 @@ const money = (cents) => pdfSafe(formatCurrency(cents / 100));
 function cellValue(line, key) {
   if (key === "date") return isoToFr(line.date);
   if (key === "compte") return line.compte ? `${line.compte} ${ACCOUNT_LABELS[line.compte] ?? ""}` : "";
-  if (key === "debit" || key === "credit") {
+  if (key === "tva") return line.tva === "" || line.tva == null ? "" : `${line.tva} %`;
+  if (key === "debit" || key === "credit" || key === "ht" || key === "ttc") {
     const cents = toCents(line[key]);
     return cents ? money(cents) : "";
   }
@@ -83,9 +87,9 @@ export function LiveInvoiceDocument({ data }) {
         ))}
 
         <View style={[styles.row, styles.totalRow]}>
-          <Text style={[styles.cell, { width: "74%" }]}>Total</Text>
-          <Text style={[styles.cell, { width: "13%", textAlign: "right" }]}>{money(totalDebit)}</Text>
-          <Text style={[styles.cell, { width: "13%", textAlign: "right" }]}>{money(totalCredit)}</Text>
+          <Text style={[styles.cell, { width: "82%" }]}>Total</Text>
+          <Text style={[styles.cell, { width: "9%", textAlign: "right" }]}>{money(totalDebit)}</Text>
+          <Text style={[styles.cell, { width: "9%", textAlign: "right" }]}>{money(totalCredit)}</Text>
         </View>
 
         <Text style={[styles.status, { color: gap === 0 ? COLORS.success : COLORS.warning }]}>

@@ -119,4 +119,34 @@ class JournalEntryApiTest extends TestCase
 
         $this->assertTrue(Account::query()->where('name', 'Oasis Voyages')->where('code', 'like', '4411%')->exists());
     }
+
+    #[Test]
+    public function it_stores_ht_and_the_tax_amount_from_the_payload(): void
+    {
+        $this->asCompany()->postJson('/api/journal-entries', [
+            'lines' => [
+                ['date' => '2026-01-12', 'journal' => 'ACH', 'facture' => 'FF-HT', 'libelle' => 'Achat', 'compte' => '6111', 'debit' => 12500, 'credit' => 0, 'tva' => 20, 'ht' => 12500, 'ttc' => 15000],
+                ['date' => '2026-01-12', 'journal' => 'ACH', 'facture' => 'FF-HT', 'libelle' => 'TVA', 'compte' => '3455', 'debit' => 2500, 'credit' => 0, 'tva' => 20, 'ht' => 12500, 'ttc' => 15000],
+                ['date' => '2026-01-12', 'journal' => 'ACH', 'facture' => 'FF-HT', 'libelle' => 'Fournisseur', 'compte' => '4411', 'tiers' => '4411 - Sud Import', 'debit' => 0, 'credit' => 15000, 'tva' => 20, 'ht' => 12500, 'ttc' => 15000],
+            ],
+        ])->assertCreated()->assertJsonPath('lines.0.ht', '12500.00')->assertJsonPath('lines.0.ttc', '15000.00');
+
+        $charge = JournalLine::query()->where('libelle', 'Achat')->first();
+        $this->assertSame('12500.00', (string) $charge->base_ht);
+        $this->assertSame('2500.00', (string) $charge->montant_tva);
+    }
+
+    #[Test]
+    public function a_class_6_debit_is_treated_as_ht_when_ht_is_omitted(): void
+    {
+        $this->asCompany()->postJson('/api/journal-entries', [
+            'lines' => [
+                ['date' => '2026-01-12', 'journal' => 'ACH', 'facture' => 'FF-INF', 'compte' => '6111', 'debit' => 100, 'credit' => 0, 'tva' => 20],
+            ],
+        ])->assertCreated();
+
+        $line = JournalLine::query()->first();
+        $this->assertSame('100.00', (string) $line->base_ht);
+        $this->assertSame('20.00', (string) $line->montant_tva);
+    }
 }

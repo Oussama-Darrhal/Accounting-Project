@@ -47,6 +47,10 @@ describe("parseInvoiceText", () => {
       ]
     );
     balanced(result);
+    assert.equal(result.lines[0].ht, "12500,00");
+    assert.equal(result.lines[0].ttc, "15000,00");
+    assert.equal(result.lines[1].ht, "12500,00");
+    assert.equal(result.lines[2].ttc, "15000,00");
   });
 
   it("fills a sales invoice for services on the income account", () => {

@@ -48,6 +48,8 @@ describe("journalApi helpers", () => {
         debit: "12500,00",
         credit: "",
         tva: "20",
+        ht: "12500,00",
+        ttc: "15000,00",
       },
       {
         date: "2026-01-12",
@@ -63,6 +65,8 @@ describe("journalApi helpers", () => {
     ]);
     assert.equal(payload.lines.length, 1);
     assert.equal(payload.lines[0].debit, 12500);
+    assert.equal(payload.lines[0].ht, 12500);
+    assert.equal(payload.lines[0].ttc, 15000);
     assert.equal(payload.lines[0].facture, "FF-0342");
   });
 

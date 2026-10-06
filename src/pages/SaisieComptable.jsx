@@ -131,7 +131,7 @@ export default function SaisieComptable() {
 
   if (enlarged && documentMode) {
     return (
-      <div className="fixed inset-0 z-50 grid h-dvh min-h-0 grid-cols-1 gap-3 overflow-y-auto bg-background p-3 md:grid-rows-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4 md:overflow-hidden md:p-4">
+      <div className="fixed inset-0 z-50 grid h-dvh min-h-0 grid-cols-1 gap-3 overflow-y-auto bg-background p-3 md:grid-rows-1 md:grid-cols-[minmax(0,5fr)_auto_minmax(0,7fr)] md:gap-4 md:overflow-hidden md:p-4">
         <div className="min-h-96 md:h-full md:min-h-0 [&>section]:h-full md:[&>section]:min-h-0">{panels[0]}</div>
 
         <div className="flex items-center justify-center gap-2 md:flex-col">
@@ -229,7 +229,7 @@ export default function SaisieComptable() {
         onToggleEnlarge={() => setEnlarged((value) => !value)}
       />
 
-      <div className={cn("grid grid-cols-1 gap-4 md:h-[calc(100vh-15rem)] md:min-h-[520px] md:grid-cols-2")}>
+      <div className={cn("grid grid-cols-1 gap-4 md:h-[calc(100vh-15rem)] md:min-h-[520px] md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]")}>
         {panels}
       </div>
 

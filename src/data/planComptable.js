@@ -82,6 +82,7 @@ export const TVA_RATES = [
   { value: "14", label: "14 %" },
   { value: "10", label: "10 %" },
   { value: "7", label: "7 %" },
+  { value: "0", label: "0 %" },
 ];
 
 export const JOURNALS = ["ACH", "VT", "BQ", "OD"];

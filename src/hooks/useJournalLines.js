@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toCents } from "@/lib/utils";
+import { hydrateLineAmounts, syncInvoiceTax } from "@/lib/tva";
 import { useAccountingStore } from "@/stores/useAccountingStore";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 
@@ -9,6 +10,11 @@ let lineSequence = 0;
 
 /** Date.now() alone collides when two lines are created in the same millisecond. */
 const createLineId = () => `line-${Date.now()}-${(lineSequence += 1)}`;
+
+function defaultTvaRate() {
+  const company = useCompanyStore.getState().currentCompany();
+  return String(company?.default_tva_rate ?? 20);
+}
 
 /** Amounts stay strings while typing ("12," is a valid intermediate state); they become numbers in the payload. */
 export function createEmptyLine() {
@@ -20,9 +26,11 @@ export function createEmptyLine() {
     libelle: "",
     compte: "",
     tiers: "",
+    ht: "",
+    ttc: "",
     debit: "",
     credit: "",
-    tva: "20",
+    tva: defaultTvaRate(),
   };
 }
 
@@ -34,14 +42,27 @@ export const isLineBlank = (line) =>
   !line.libelle.trim() &&
   !line.compte &&
   !line.tiers.trim() &&
+  !String(line.ht ?? "").trim() &&
+  !String(line.ttc ?? "").trim() &&
   !line.debit.trim() &&
   !line.credit.trim();
 
-const LINE_FIELDS = ["date", "journal", "facture", "libelle", "compte", "tiers", "debit", "credit", "tva"];
+const LINE_FIELDS = ["date", "journal", "facture", "libelle", "compte", "tiers", "ht", "ttc", "debit", "credit", "tva"];
+
+function asAmountString(value) {
+  if (value == null || value === "") return "";
+  return typeof value === "number" ? String(value) : String(value);
+}
 
 function restoreLine(line) {
   const restored = { ...createEmptyLine(), id: typeof line?.id === "string" ? line.id : createLineId() };
-  LINE_FIELDS.forEach((field) => typeof line?.[field] === "string" && (restored[field] = line[field]));
+  LINE_FIELDS.forEach((field) => {
+    if (line?.[field] == null || line[field] === "") return;
+    restored[field] = asAmountString(line[field]);
+  });
+  const amounts = hydrateLineAmounts({ ...line, ...restored });
+  restored.ht = amounts.ht;
+  restored.ttc = amounts.ttc;
   return restored;
 }
 
@@ -89,7 +110,7 @@ export function useJournalLines() {
   }, [journalLines, setDraftLines, companyId]);
 
   const updateLine = useCallback((id, field, value) => {
-    setJournalLines((current) => current.map((line) => (line.id === id ? { ...line, [field]: value } : line)));
+    setJournalLines((current) => syncInvoiceTax(current, id, field, value));
   }, []);
 
   const addLine = useCallback(() => {
@@ -127,6 +148,10 @@ export function useJournalLines() {
       debit: line.debit ? String(line.debit) : "",
       credit: line.credit ? String(line.credit) : "",
       tva: String(line.tva ?? 20),
+      ht: line.ht ?? line.base_ht ?? "",
+      ttc: line.ttc ?? "",
+      montant_tva: line.montant_tva,
+      base_ht: line.base_ht,
     }));
     setJournalLines(source.length > 0 ? source.map(restoreLine) : [createEmptyLine()]);
   }, []);

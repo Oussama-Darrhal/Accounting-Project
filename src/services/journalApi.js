@@ -18,6 +18,8 @@ export function buildJournalPayload(journalLines) {
       debit: toCents(line.debit) / 100,
       credit: toCents(line.credit) / 100,
       tva: Number(line.tva),
+      ht: toCents(line.ht) / 100,
+      ttc: toCents(line.ttc) / 100,
     })),
   };
 }
@@ -45,6 +47,9 @@ export function normalizeEntry(entry) {
       ...line,
       debit: Number(line.debit) || 0,
       credit: Number(line.credit) || 0,
+      tva: line.tva ?? line.tva_rate ?? null,
+      base_ht: line.base_ht ?? line.ht ?? null,
+      montant_tva: line.montant_tva ?? null,
     })),
   };
 }

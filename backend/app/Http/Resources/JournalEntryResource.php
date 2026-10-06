@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\JournalEntry;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -33,11 +34,24 @@ class JournalEntryResource extends JsonResource
                 'debit' => (float) $line->debit,
                 'credit' => (float) $line->credit,
                 'tva' => $line->tva_rate,
+                'ht' => $line->base_ht,
+                'ttc' => $this->ttcOf($line),
                 'base_ht' => $line->base_ht,
                 'montant_tva' => $line->montant_tva,
                 'due_date' => $line->due_date?->toDateString(),
                 'lettrage_code' => $line->lettrage_code,
             ]),
         ];
+    }
+
+    private function ttcOf(mixed $line): ?string
+    {
+        if ($line->base_ht === null && $line->montant_tva === null) {
+            return null;
+        }
+
+        return Money::fromCents(
+            Money::toCents($line->base_ht ?? 0) + Money::toCents($line->montant_tva ?? 0)
+        );
     }
 }

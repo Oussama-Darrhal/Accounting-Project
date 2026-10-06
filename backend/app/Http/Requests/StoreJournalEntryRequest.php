@@ -28,6 +28,8 @@ class StoreJournalEntryRequest extends FormRequest
             'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
             'lines.*.tva' => ['nullable', 'integer', 'in:0,7,10,14,20'],
             'lines.*.tva_rate' => ['nullable', 'integer', 'in:0,7,10,14,20'],
+            'lines.*.ht' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.ttc' => ['nullable', 'numeric', 'min:0'],
             'lines.*.due_date' => ['nullable', 'date'],
         ];
     }

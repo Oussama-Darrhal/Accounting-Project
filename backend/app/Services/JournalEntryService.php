@@ -52,7 +52,7 @@ class JournalEntryService
                 }
 
                 $tvaRate = isset($line['tva']) ? (int) $line['tva'] : (isset($line['tva_rate']) ? (int) $line['tva_rate'] : $company->default_tva_rate);
-                $vatCents = $this->vatCents($debit, $credit, $tvaRate);
+                $tax = $this->taxBreakdown($line, $debit, $credit, $tvaRate, $account);
 
                 $prepared[] = [
                     'account' => $account,
@@ -60,8 +60,8 @@ class JournalEntryService
                     'debit' => Money::fromCents($debit),
                     'credit' => Money::fromCents($credit),
                     'tva_rate' => $tvaRate,
-                    'base_ht' => Money::fromCents(max($debit, $credit) - $vatCents),
-                    'montant_tva' => Money::fromCents($vatCents),
+                    'base_ht' => $tax['base_ht'],
+                    'montant_tva' => $tax['montant_tva'],
                     'due_date' => $line['due_date'] ?? ($account->isTiers() ? $this->defaultDueDate($date) : null),
                     'date' => $date,
                     'journal' => $line['journal'] ?? $payload['journal'] ?? 'OD',
@@ -226,7 +226,7 @@ class JournalEntryService
             }
 
             $tvaRate = isset($line['tva']) ? (int) $line['tva'] : (isset($line['tva_rate']) ? (int) $line['tva_rate'] : $company->default_tva_rate);
-            $vatCents = $this->vatCents($debit, $credit, $tvaRate);
+            $tax = $this->taxBreakdown($line, $debit, $credit, $tvaRate, $account);
 
             $prepared[] = [
                 'account' => $account,
@@ -234,8 +234,8 @@ class JournalEntryService
                 'debit' => Money::fromCents($debit),
                 'credit' => Money::fromCents($credit),
                 'tva_rate' => $tvaRate,
-                'base_ht' => Money::fromCents(max($debit, $credit) - $vatCents),
-                'montant_tva' => Money::fromCents($vatCents),
+                'base_ht' => $tax['base_ht'],
+                'montant_tva' => $tax['montant_tva'],
                 'due_date' => $line['due_date'] ?? ($account->isTiers() ? $this->defaultDueDate($date) : null),
                 'date' => $date,
                 'journal' => $line['journal'] ?? $payload['journal'] ?? 'OD',
@@ -275,14 +275,67 @@ class JournalEntryService
         return $account->findOrCreateAuxiliary($tiers);
     }
 
-    private function vatCents(int $debit, int $credit, int $rate): int
+    /**
+     * @return array{base_ht: string, montant_tva: string}
+     */
+    private function taxBreakdown(array $line, int $debit, int $credit, int $tvaRate, Account $account): array
     {
-        $gross = max($debit, $credit);
-        if ($rate <= 0 || $gross === 0) {
-            return 0;
+        $ht = $this->optionalCents($line['ht'] ?? null);
+        $ttc = $this->optionalCents($line['ttc'] ?? null);
+
+        if ($ht !== null || $ttc !== null) {
+            if ($ht === null) {
+                $ht = $tvaRate > 0 ? (int) round($ttc * 100 / (100 + $tvaRate)) : $ttc;
+            }
+            if ($ttc === null) {
+                $ttc = $ht + ($tvaRate > 0 ? (int) round($ht * $tvaRate / 100) : 0);
+            }
+
+            return [
+                'base_ht' => Money::fromCents($ht),
+                'montant_tva' => Money::fromCents(max(0, $ttc - $ht)),
+            ];
         }
 
-        return (int) round($gross * $rate / (100 + $rate));
+        $gross = max($debit, $credit);
+        $code = (string) $account->code;
+
+        if (str_starts_with($code, '3455') || str_starts_with($code, '4455')) {
+            $vat = $gross;
+            $base = $tvaRate > 0 ? (int) round($gross * 100 / $tvaRate) : 0;
+
+            return [
+                'base_ht' => Money::fromCents($base),
+                'montant_tva' => Money::fromCents($vat),
+            ];
+        }
+
+        if ($code !== '' && ($code[0] === '6' || $code[0] === '7')) {
+            $vat = $tvaRate > 0 ? (int) round($gross * $tvaRate / 100) : 0;
+
+            return [
+                'base_ht' => Money::fromCents($gross),
+                'montant_tva' => Money::fromCents($vat),
+            ];
+        }
+
+        $vat = $tvaRate > 0 ? (int) round($gross * $tvaRate / (100 + $tvaRate)) : 0;
+
+        return [
+            'base_ht' => Money::fromCents($gross - $vat),
+            'montant_tva' => Money::fromCents($vat),
+        ];
+    }
+
+    private function optionalCents(mixed $amount): ?int
+    {
+        if ($amount === null || $amount === '') {
+            return null;
+        }
+
+        $cents = Money::toCents($amount);
+
+        return $cents === 0 ? null : $cents;
     }
 
     private function defaultDueDate(string $date): string

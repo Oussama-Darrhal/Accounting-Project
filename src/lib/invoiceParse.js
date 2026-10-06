@@ -292,7 +292,7 @@ function accountsFor(kind, text) {
 }
 
 function buildLines({ date, number, kind, creditNote, rate, htCents, tvaCents, ttcCents, accounts, journal, libelle, tiers }) {
-  const details = { date, number, rate, journal, libelle, tiers, counterparty: accounts.counterparty };
+  const details = { date, number, rate, journal, libelle, tiers, counterparty: accounts.counterparty, htCents, ttcCents };
   const product = entryLine(details, accounts.product, kind === "sale" ? 0 : htCents, kind === "sale" ? htCents : 0);
   const vat = entryLine(details, accounts.vat, kind === "sale" ? 0 : tvaCents, kind === "sale" ? tvaCents : 0);
   const counterparty = entryLine(details, accounts.counterparty, kind === "sale" ? ttcCents : 0, kind === "sale" ? 0 : ttcCents);
@@ -311,6 +311,8 @@ function entryLine(details, compte, debitCents, creditCents) {
     libelle: details.libelle,
     compte,
     tiers: compte === details.counterparty ? details.tiers : "",
+    ht: details.htCents ? formatCents(details.htCents) : "",
+    ttc: details.ttcCents ? formatCents(details.ttcCents) : "",
     debit: debitCents ? formatCents(debitCents) : "",
     credit: creditCents ? formatCents(creditCents) : "",
     tva: String(details.rate),

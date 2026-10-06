@@ -63,7 +63,7 @@ function useDashboardData(range, journalEntries) {
 
 function RevenueTrend({ change }) {
   if (change === null) {
-    return <p className="mt-1 text-xs text-muted-foreground">Pas de période précédente à comparer</p>;
+    return <p className="mt-1 text-xs text-muted-foreground">Pas de chiffre d'affaires sur la période précédente</p>;
   }
   const up = change >= 0;
   const Icon = up ? TrendingUp : TrendingDown;

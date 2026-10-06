@@ -18,7 +18,9 @@ export function PublicOnlyRoute() {
   const location = useLocation();
 
   if (isAuthenticated) {
-    return <Navigate to={location.state?.from?.pathname ?? "/"} replace />;
+    const from = location.state?.from;
+    const next = from ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}` : "/";
+    return <Navigate to={next} replace />;
   }
 
   return <Outlet />;

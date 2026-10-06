@@ -36,7 +36,9 @@ describe("ledger helpers", () => {
     assert.equal(draftCount(entries), 1);
     const recent = recentEntriesFromJournal(entries);
     assert.equal(recent[0].status, "draft");
+    assert.equal(recent[0].to, "/saisie?brouillon=EC-2");
     assert.equal(recent[1].status, "validated");
+    assert.equal(recent[1].to, "/grand-livre");
     assert.equal(recent[1].amount, 100);
   });
 

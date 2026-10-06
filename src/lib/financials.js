@@ -1,4 +1,4 @@
-import { addDays, daysBetween, formatShortDate, parseISODate } from "@/lib/dateRange";
+import { addDays, daysBetween, formatShortDate, parseISODate } from "./dateRange.js";
 
 const TVA_RATE = 0.2;
 /** Share of charges carrying deductible VAT (salaries, social charges, etc. do not). */
@@ -87,4 +87,28 @@ export function bucketize(days, range) {
   }
 
   return { granularity, buckets: [...buckets.values()] };
+}
+
+/** Posted class 7 = CA HT, class 6 = charges. Drafts stay out. */
+export function dailyFinancialsFromJournal(journalEntries) {
+  const byDate = new Map();
+  for (const entry of journalEntries ?? []) {
+    if (!entry || entry.is_draft) continue;
+    for (const line of entry.lines ?? []) {
+      const date = line.date || entry.date_piece;
+      if (!date) continue;
+      const code = String(line.compte || "");
+      const debit = Number(line.debit) || 0;
+      const credit = Number(line.credit) || 0;
+      const day = byDate.get(date) ?? { date, revenue: 0, charges: 0, invoices: 0 };
+      if (code.startsWith("7")) {
+        day.revenue += credit - debit;
+        if (credit > 0) day.invoices += 1;
+      } else if (code.startsWith("6")) {
+        day.charges += debit - credit;
+      }
+      byDate.set(date, day);
+    }
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }

@@ -42,7 +42,11 @@ export function RecentEntries({ entries }) {
             {entries.map((entry) => (
               <tr key={entry.id} className="border-b last:border-0">
                 <td className="py-2.5 text-muted-foreground">{formatDate(entry.date)}</td>
-                <td className="whitespace-nowrap py-2.5 pr-4 font-mono text-xs">{entry.piece}</td>
+                <td className="whitespace-nowrap py-2.5 pr-4 font-mono text-xs">
+                  <Link className="font-medium text-primary hover:underline" to={entry.to}>
+                    {entry.piece}
+                  </Link>
+                </td>
                 <td className="py-2.5">{entry.label}</td>
                 <td className="py-2.5 text-right tabular-nums">{formatCurrency(entry.amount)}</td>
                 <td className="py-2.5 text-right">

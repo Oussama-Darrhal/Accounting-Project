@@ -1,4 +1,5 @@
 import { Building2 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Select } from "@/components/ui/select";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 
@@ -9,6 +10,8 @@ export function CompanySwitcher() {
   const loadError = useCompanyStore((state) => state.loadError);
   const hasHydrated = useCompanyStore((state) => state.hasHydrated);
   const current = companies.find((company) => String(company.id) === String(currentCompanyId));
+  const navigate = useNavigate();
+  const location = useLocation();
 
   if (!hasHydrated || (companies.length === 0 && !loadError)) {
     return <p className="ml-auto truncate text-sm text-muted-foreground">Chargement des dossiers…</p>;
@@ -36,15 +39,18 @@ export function CompanySwitcher() {
         <Select
           aria-label="Dossier société"
           className="h-9 min-w-[12rem] max-w-[18rem] font-medium"
-          value={currentCompanyId ?? ""}
+          value={currentCompanyId != null ? String(currentCompanyId) : ""}
           onChange={(event) => {
             const id = event.target.value;
             if (!id || id === String(currentCompanyId)) return;
             switchCompany(id);
+            if (new URLSearchParams(location.search).has("brouillon")) {
+              navigate({ pathname: location.pathname, search: "", hash: location.hash }, { replace: true });
+            }
           }}
         >
           {companies.map((company) => (
-            <option key={company.id} value={company.id}>
+            <option key={company.id} value={String(company.id)}>
               {company.name}
             </option>
           ))}

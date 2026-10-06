@@ -1,3 +1,5 @@
+import { formatCurrency } from "../lib/utils.js";
+
 export const VAT_ALERT = {
   id: "vat-declaration",
   label: "Déclaration TVA — échéance 20/10",
@@ -37,7 +39,7 @@ export function dashboardAlertsFromApi(data = {}) {
       label: lateInvoiceLabel(late),
       detail: late
         ? solde
-          ? `Relances et lettrage à effectuer · solde ${solde} MAD`
+          ? `Relances et lettrage à effectuer · solde ${formatCurrency(Number(solde))}`
           : "Relances et lettrage à effectuer"
         : "Aucune facture hors délai 69-21",
       tone: "destructive",

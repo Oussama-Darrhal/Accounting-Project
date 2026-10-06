@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CircleCheck, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
@@ -17,6 +18,7 @@ export function EntryForm({ journal }) {
   const accounts = useAccountingStore((state) => state.accounts);
   const tiersOptions = [...new Set([...TIER_SUGGESTIONS, ...tiersOptionLabels(accounts)])];
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (event) => {
@@ -52,7 +54,9 @@ export function EntryForm({ journal }) {
           description: `${countLabel}. Elle est visible dans le grand livre.`,
         });
       }
+      if (editingEntryId && saved.is_draft) return;
       reset();
+      if (editingEntryId) navigate("/saisie", { replace: true });
     } catch (error) {
       toast({
         variant: "error",

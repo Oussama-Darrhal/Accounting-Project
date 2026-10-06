@@ -6,27 +6,37 @@ const EMPTY_ALERTS = { drafts: 0, late_invoices: 0, solde_restant: "0.00" };
 
 /**
  * Shared journal for saisie, the dashboard, and the grand livre.
- * `draftLines` is the grid currently being typed (local only).
- * `journalEntries` and `alerts` come from the Laravel API.
+ * Open grid drafts are keyed by company so dossiers stay isolated.
+ * `journalEntries` and `alerts` come from the Laravel API for the current dossier.
  */
 export const useAccountingStore = create(
   persist(
     (set, get) => ({
       journalEntries: [],
       alerts: EMPTY_ALERTS,
-      draftLines: null,
+      draftLinesByCompany: {},
       hasHydrated: false,
       syncStatus: "idle",
       syncError: null,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
-      setDraftLines: (draftLines) => set({ draftLines }),
+      setDraftLines: (companyId, draftLines) => {
+        if (!companyId) return;
+        set({
+          draftLinesByCompany: {
+            ...get().draftLinesByCompany,
+            [String(companyId)]: draftLines,
+          },
+        });
+      },
       hydrateFromApi: async () => {
-        set({ syncStatus: "loading", syncError: null });
+        set({ journalEntries: [], alerts: EMPTY_ALERTS, syncStatus: "loading", syncError: null });
         try {
           const [journalEntries, alerts] = await Promise.all([fetchJournalEntries(), fetchDashboardAlerts()]);
           set({ journalEntries, alerts, syncStatus: "ready", syncError: null });
         } catch (error) {
           set({
+            journalEntries: [],
+            alerts: EMPTY_ALERTS,
             syncStatus: "error",
             syncError: error instanceof Error ? error.message : "API injoignable",
           });
@@ -53,12 +63,12 @@ export const useAccountingStore = create(
     }),
     {
       name: "compta-mvp:accounting",
-      version: 2,
-      migrate: (persistedState) => ({
-        draftLines: persistedState?.draftLines ?? null,
+      version: 3,
+      migrate: () => ({
+        draftLinesByCompany: {},
       }),
       partialize: (state) => ({
-        draftLines: state.draftLines,
+        draftLinesByCompany: state.draftLinesByCompany,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
@@ -66,3 +76,11 @@ export const useAccountingStore = create(
     }
   )
 );
+
+if (typeof window !== "undefined" && !useAccountingStore.getState().hasHydrated) {
+  queueMicrotask(() => {
+    if (!useAccountingStore.getState().hasHydrated) {
+      useAccountingStore.setState({ hasHydrated: true });
+    }
+  });
+}

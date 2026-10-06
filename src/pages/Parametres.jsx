@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,31 @@ import { Input, inputClassName } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { TVA_RATES } from "@/data/planComptable";
+import { updateCompany } from "@/services/journalApi";
+import { useCompanyStore } from "@/stores/useCompanyStore";
 
-const INITIAL_SETTINGS = {
-  companyName: "Atlas Conseil SARL",
-  ice: "001234567000089",
-  fiscalId: "40123456",
+const EMPTY = {
+  companyName: "",
+  ice: "",
+  fiscalId: "",
   fiscalStart: "2026-01-01",
   fiscalEnd: "2026-12-31",
   defaultTva: "20",
   currency: "MAD",
 };
+
+function settingsFromCompany(company) {
+  if (!company) return EMPTY;
+  return {
+    companyName: company.name ?? "",
+    ice: company.ice ?? "",
+    fiscalId: company.fiscal_id ?? "",
+    fiscalStart: company.fiscal_start ?? "2026-01-01",
+    fiscalEnd: company.fiscal_end ?? "2026-12-31",
+    defaultTva: String(company.default_tva_rate ?? 20),
+    currency: company.currency ?? "MAD",
+  };
+}
 
 function Field({ id, label, children }) {
   return (
@@ -29,29 +44,62 @@ function Field({ id, label, children }) {
 }
 
 export default function Parametres() {
-  const [settings, setSettings] = useState(INITIAL_SETTINGS);
+  const current = useCompanyStore((state) =>
+    state.companies.find((company) => String(company.id) === String(state.currentCompanyId))
+  );
+  const loadCompanies = useCompanyStore((state) => state.loadCompanies);
+  const [settings, setSettings] = useState(EMPTY);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setSettings(settingsFromCompany(current));
+    setSaved(false);
+    setError("");
+  }, [current]);
 
   const updateDate = (field) => (value) => {
     setSaved(false);
-    setSettings((current) => ({ ...current, [field]: value }));
+    setSettings((currentSettings) => ({ ...currentSettings, [field]: value }));
   };
   const update = (field) => (event) => updateDate(field)(event.target.value);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setSaved(true);
+    if (!current?.id || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await updateCompany(current.id, {
+        name: settings.companyName,
+        ice: settings.ice || null,
+        fiscal_id: settings.fiscalId || null,
+        fiscal_start: settings.fiscalStart,
+        fiscal_end: settings.fiscalEnd,
+        default_tva_rate: Number(settings.defaultTva),
+        currency: settings.currency,
+      });
+      await loadCompanies();
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <>
-      <PageHeader description="Informations du dossier et préférences de saisie." />
+      <PageHeader description="Informations du dossier courant. Chaque société du groupe a les siennes." />
 
       <form onSubmit={handleSubmit} className="grid max-w-4xl gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Société</CardTitle>
-            <CardDescription>Identifiants légaux utilisés sur les états et déclarations.</CardDescription>
+            <CardDescription>
+              {current ? `${current.umbrella} · ${current.name}` : "Identifiants légaux utilisés sur les états et déclarations."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field id="companyName" label="Raison sociale">
@@ -105,10 +153,11 @@ export default function Parametres() {
             </Field>
           </CardContent>
           <CardFooter className="justify-end gap-3 border-t pt-4">
-            <p role="status" aria-live="polite" className="mr-auto text-sm text-success">
-              {saved && "Paramètres enregistrés."}
+            <p role="status" aria-live="polite" className="mr-auto text-sm">
+              {error && <span className="text-destructive">{error}</span>}
+              {saved && !error && <span className="text-success">Paramètres enregistrés.</span>}
             </p>
-            <Button type="submit">
+            <Button type="submit" disabled={saving || !current}>
               <Save aria-hidden="true" /> Enregistrer
             </Button>
           </CardFooter>

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import {
   buildJournalPayload,
+  fetchActivityLogs,
+  fetchCompanies,
   fetchDashboardAlerts,
   fetchJournalEntries,
   messageFromApiError,
@@ -10,9 +12,11 @@ import {
   unwrapEntry,
   unwrapList,
 } from "./journalApi.js";
+import { setActiveCompanyId } from "./companyContext.js";
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  setActiveCompanyId(null);
 });
 
 const originalFetch = globalThis.fetch;
@@ -128,5 +132,40 @@ describe("journalApi HTTP", () => {
   it("surfaces a 422 message from Laravel", async () => {
     mockFetch(async () => jsonResponse({ message: "Compte inconnu [9999]." }, 422));
     await assert.rejects(() => fetchJournalEntries(), /Compte inconnu/);
+  });
+
+  it("sends the current dossier on X-Company-Id", async () => {
+    setActiveCompanyId("7");
+    mockFetch(async (_url, options) => {
+      assert.equal(options.headers["X-Company-Id"], "7");
+      return jsonResponse([]);
+    });
+    await fetchJournalEntries();
+  });
+
+  it("lists companies and unwraps the Laravel collection envelope", async () => {
+    mockFetch(async (url) => {
+      assert.equal(url, "/api/companies");
+      return jsonResponse({
+        data: [{ id: 2, slug: "astrolabe-voyage", name: "Astrolabe Voyage", umbrella: "Groupe" }],
+      });
+    });
+    const companies = await fetchCompanies();
+    assert.equal(companies[0].id, "2");
+    assert.equal(companies[0].slug, "astrolabe-voyage");
+  });
+
+  it("loads activity logs for the current dossier", async () => {
+    setActiveCompanyId("3");
+    mockFetch(async (url, options) => {
+      assert.equal(url, "/api/activity-logs");
+      assert.equal(options.headers["X-Company-Id"], "3");
+      return jsonResponse({
+        data: [{ id: 9, action: "journal.posted", message: "Écriture enregistrée · CG-1", actor: "Sara", createdAt: "2026-10-06T12:00:00.000000Z" }],
+      });
+    });
+    const logs = await fetchActivityLogs();
+    assert.equal(logs[0].action, "journal.posted");
+    assert.equal(logs[0].createdAt, "2026-10-06T12:00:00.000000Z");
   });
 });

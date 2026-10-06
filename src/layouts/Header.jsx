@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { matchPath, useLocation } from "react-router-dom";
 import { Menu, PanelLeft, PanelLeftClose } from "lucide-react";
 import { NAV_ITEMS } from "@/layouts/navigation";
+import { CompanySwitcher } from "@/layouts/CompanySwitcher";
 import { cn } from "@/lib/utils";
 
 const ghostButton =
@@ -53,6 +54,7 @@ export function Header({ collapsed, onToggleCollapsed, sidebarOpen, onOpenSideba
       </button>
 
       <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>
+      <CompanySwitcher />
     </header>
   );
 }

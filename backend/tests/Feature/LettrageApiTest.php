@@ -21,14 +21,14 @@ class LettrageApiTest extends TestCase
     #[Test]
     public function it_letters_matching_lines_and_flags_a_69_21_delay(): void
     {
-        $invoice = $this->postJson('/api/journal-entries', [
+        $invoice = $this->asCompany()->postJson('/api/journal-entries', [
             'lines' => [
                 ['date' => '2026-01-01', 'journal' => 'ACH', 'facture' => 'FF-1', 'compte' => '6111', 'debit' => 100, 'credit' => 0, 'tva' => 20],
                 ['date' => '2026-01-01', 'journal' => 'ACH', 'facture' => 'FF-1', 'compte' => '4411', 'tiers' => '4411 - Sud Import', 'debit' => 0, 'credit' => 100, 'tva' => 20],
             ],
         ])->assertCreated();
 
-        $payment = $this->postJson('/api/journal-entries', [
+        $payment = $this->asCompany()->postJson('/api/journal-entries', [
             'lines' => [
                 ['date' => '2026-03-15', 'journal' => 'BQ', 'facture' => 'BQ-9', 'compte' => '4411', 'tiers' => '4411 - Sud Import', 'debit' => 100, 'credit' => 0, 'tva' => 20],
                 ['date' => '2026-03-15', 'journal' => 'BQ', 'facture' => 'BQ-9', 'compte' => '5141', 'debit' => 0, 'credit' => 100, 'tva' => 20],
@@ -42,18 +42,18 @@ class LettrageApiTest extends TestCase
 
         $this->assertCount(2, $supplierLines);
 
-        $this->postJson('/api/lettrage', ['line_ids' => $supplierLines->all()])
+        $this->postJson('/api/lettrage', ['line_ids' => $supplierLines->all()], $this->companyHeaders())
             ->assertCreated()
             ->assertJsonPath('code', 'A')
             ->assertJsonPath('late_payment.days', 73);
 
-        $this->getJson('/api/dashboard/alerts')->assertJsonPath('late_invoices', 0);
+        $this->getJson('/api/dashboard/alerts', $this->companyHeaders())->assertJsonPath('late_invoices', 0);
     }
 
     #[Test]
     public function it_rejects_an_unbalanced_lettrage(): void
     {
-        $this->postJson('/api/journal-entries', [
+        $this->asCompany()->postJson('/api/journal-entries', [
             'lines' => [
                 ['date' => '2026-01-01', 'journal' => 'ACH', 'compte' => '6111', 'debit' => 100, 'credit' => 0],
                 ['date' => '2026-01-01', 'journal' => 'ACH', 'compte' => '4411', 'debit' => 0, 'credit' => 100],
@@ -61,7 +61,7 @@ class LettrageApiTest extends TestCase
         ]);
 
         $ids = JournalLine::query()->pluck('id')->take(2)->all();
-        $this->postJson('/api/lettrage', ['line_ids' => [$ids[0], $ids[0]]])
+        $this->postJson('/api/lettrage', ['line_ids' => [$ids[0], $ids[0]]], $this->companyHeaders())
             ->assertStatus(422);
     }
 }

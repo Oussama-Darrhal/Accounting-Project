@@ -23,7 +23,7 @@ class JournalEntryApiTest extends TestCase
     #[Test]
     public function it_posts_a_balanced_entry_and_lists_it_on_the_ledger(): void
     {
-        $response = $this->postJson('/api/journal-entries', [
+        $response = $this->asCompany()->postJson('/api/journal-entries', [
             'lines' => [
                 ['date' => '2026-01-12', 'journal' => 'ACH', 'facture' => 'FF-0342', 'libelle' => 'Achat FF-0342', 'compte' => '6111', 'debit' => 12500, 'credit' => 0, 'tva' => 20],
                 ['date' => '2026-01-12', 'journal' => 'ACH', 'facture' => 'FF-0342', 'libelle' => 'Achat FF-0342', 'compte' => '3455', 'debit' => 2500, 'credit' => 0, 'tva' => 20],
@@ -37,15 +37,15 @@ class JournalEntryApiTest extends TestCase
 
         $this->assertTrue(Account::query()->where('name', 'Sud Import')->exists());
 
-        $this->getJson('/api/ledger')
+        $this->getJson('/api/ledger', $this->companyHeaders())
             ->assertOk()
             ->assertJsonCount(3, 'data');
 
-        $this->getJson('/api/dashboard/alerts')
+        $this->getJson('/api/dashboard/alerts', $this->companyHeaders())
             ->assertOk()
             ->assertJsonPath('drafts', 0);
 
-        $this->getJson('/api/journal-entries')
+        $this->getJson('/api/journal-entries', $this->companyHeaders())
             ->assertOk()
             ->assertJsonPath('0.reference_piece', 'FF-0342')
             ->assertJsonPath('0.is_draft', false);
@@ -54,14 +54,14 @@ class JournalEntryApiTest extends TestCase
     #[Test]
     public function an_unbalanced_entry_is_stored_as_a_draft_and_stays_off_the_ledger(): void
     {
-        $this->postJson('/api/journal-entries', [
+        $this->asCompany()->postJson('/api/journal-entries', [
             'lines' => [
                 ['date' => '2026-03-02', 'journal' => 'ACH', 'compte' => '6111', 'debit' => 100, 'credit' => 0, 'tva' => 20],
             ],
         ])->assertCreated()->assertJsonPath('is_draft', true);
 
         $this->assertSame(1, JournalEntry::query()->where('is_draft', true)->count());
-        $this->getJson('/api/ledger')->assertJsonCount(0, 'data');
-        $this->getJson('/api/dashboard/alerts')->assertJsonPath('drafts', 1);
+        $this->getJson('/api/ledger', $this->companyHeaders())->assertJsonCount(0, 'data');
+        $this->getJson('/api/dashboard/alerts', $this->companyHeaders())->assertJsonPath('drafts', 1);
     }
 }

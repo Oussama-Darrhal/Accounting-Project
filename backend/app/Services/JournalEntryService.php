@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 class JournalEntryService
 {
+    public function __construct(private ActivityLogService $logs) {}
+
     /**
      * Persist a header + lines in one transaction.
      * is_draft is computed from cents, never taken from the client.
@@ -25,7 +27,7 @@ class JournalEntryService
             throw ValidationException::withMessages(['lines' => 'Au moins une ligne est obligatoire.']);
         }
 
-        return DB::transaction(function () use ($company, $payload, $lines) {
+        $entry = DB::transaction(function () use ($company, $payload, $lines) {
             $prepared = [];
             $debitCents = 0;
             $creditCents = 0;
@@ -107,6 +109,20 @@ class JournalEntryService
 
             return $entry->load(['lines.account.parent', 'journal']);
         });
+
+        $piece = $entry->reference_piece ? ' · '.$entry->reference_piece : '';
+        $this->logs->record(
+            $company,
+            $entry->is_draft ? 'journal.draft' : 'journal.posted',
+            ($entry->is_draft ? 'Brouillon enregistré' : 'Écriture enregistrée').$piece,
+            [
+                'id' => $entry->id,
+                'is_draft' => $entry->is_draft,
+                'reference_piece' => $entry->reference_piece,
+            ],
+        );
+
+        return $entry;
     }
 
     private function resolveAccount(Company $company, array $line, int $index): Account

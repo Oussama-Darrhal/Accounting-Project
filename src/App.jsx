@@ -9,6 +9,7 @@ const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const SaisieComptable = lazy(() => import("@/pages/SaisieComptable"));
 const GrandLivre = lazy(() => import("@/pages/GrandLivre"));
 const Lettrage = lazy(() => import("@/pages/Lettrage"));
+const Logs = lazy(() => import("@/pages/Logs"));
 const Parametres = lazy(() => import("@/pages/Parametres"));
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="saisie" element={<SaisieComptable />} />
             <Route path="grand-livre" element={<GrandLivre />} />
             <Route path="lettrage" element={<Lettrage />} />
+            <Route path="logs" element={<Logs />} />
             <Route path="parametres" element={<Parametres />} />
           </Route>
         </Route>

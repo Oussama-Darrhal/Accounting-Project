@@ -22,7 +22,9 @@ const COLUMNS = [
 const cellInput =
   "h-9 w-full rounded-none border-0 bg-transparent px-2 text-sm outline-none focus:bg-primary/5 focus:ring-2 focus:ring-inset focus:ring-ring";
 
-const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRemove, tiersOptions }) {
+const NEW_TIER_VALUE = "__new_tier__";
+
+const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRemove, tiersOptions, onNewTier }) {
   const cellProps = (col) => ({
     "data-row": index,
     "data-col": col,
@@ -159,10 +161,19 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
         <select
           className={cn(cellInput, "cursor-pointer", !line.tiers && "text-muted-foreground")}
           value={line.tiers}
-          onChange={(e) => onChange(line.id, "tiers", e.target.value)}
+          onChange={(e) => {
+            if (e.target.value === NEW_TIER_VALUE) {
+              onNewTier(line.id);
+              return;
+            }
+            onChange(line.id, "tiers", e.target.value);
+          }}
           {...cellProps(10)}
         >
           <option value="">Sélectionner…</option>
+          <option value={NEW_TIER_VALUE} className="font-medium text-primary">
+            + Nouveau tiers…
+          </option>
           {line.tiers && !tiersOptions.includes(line.tiers) && (
             <option value={line.tiers} className="text-foreground">
               {line.tiers}
@@ -190,7 +201,7 @@ const EntryRow = memo(function EntryRow({ line, index, canRemove, onChange, onRe
   );
 });
 
-export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptions = [] }) {
+export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptions = [], onNewTier }) {
   const tableRef = useRef(null);
   const pendingFocus = useRef(null);
 
@@ -256,6 +267,7 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptio
                 tiersOptions={tiersOptions}
                 onChange={onChange}
                 onRemove={onRemove}
+                onNewTier={onNewTier}
               />
             ))}
           </tbody>

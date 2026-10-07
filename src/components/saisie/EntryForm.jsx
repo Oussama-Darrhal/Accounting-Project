@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CircleCheck, TriangleAlert } from "lucide-react";
+import { CircleCheck, TriangleAlert, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { EntryGrid } from "@/components/saisie/EntryGrid";
 import { SaveButton } from "@/components/saisie/SaveButton";
@@ -16,10 +17,48 @@ import { useAccountingStore } from "@/stores/useAccountingStore";
 export function EntryForm({ journal }) {
   const { journalLines, totals, updateLine, addLine, removeLine, reset, editingEntryId } = journal;
   const accounts = useAccountingStore((state) => state.accounts);
-  const tiersOptions = [...new Set([...TIER_SUGGESTIONS, ...tiersOptionLabels(accounts)])];
+  const [customTiers, setCustomTiers] = useState([]);
+  const [newTier, setNewTier] = useState(null);
+  const [tierName, setTierName] = useState("");
+  const [tierPrefix, setTierPrefix] = useState("");
+  const [tierError, setTierError] = useState("");
+  const tiersOptions = useMemo(
+    () => [...new Set([...TIER_SUGGESTIONS, ...tiersOptionLabels(accounts), ...customTiers])],
+    [accounts, customTiers]
+  );
   const { toast } = useToast();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+
+  const openNewTier = (lineId) => {
+    setNewTier({ lineId });
+    setTierName("");
+    setTierPrefix("");
+    setTierError("");
+  };
+
+  const closeNewTier = () => {
+    setNewTier(null);
+    setTierError("");
+  };
+
+  const handleCreateTier = (event) => {
+    event.preventDefault();
+    const name = tierName.trim();
+    const prefix = tierPrefix.trim();
+    if (!name || !prefix) {
+      setTierError("Le nom et le préfixe du compte sont obligatoires.");
+      return;
+    }
+    if (!/^\d{1,10}$/.test(prefix)) {
+      setTierError("Le préfixe doit contenir uniquement des chiffres (ex. 3421).");
+      return;
+    }
+    const tier = `${prefix} - ${name}`;
+    setCustomTiers((current) => (current.includes(tier) ? current : [...current, tier]));
+    updateLine(newTier.lineId, "tiers", tier);
+    closeNewTier();
+  };
 
   const handleSave = async (event) => {
     event.preventDefault();
@@ -98,12 +137,64 @@ export function EntryForm({ journal }) {
           onAdd={addLine}
           onRemove={removeLine}
           tiersOptions={tiersOptions}
+          onNewTier={openNewTier}
         />
 
         <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t pt-3">
           <SaveButton isBalanced={totals.isBalanced} disabled={totals.isEmpty} saving={saving} />
         </div>
       </form>
+
+      {newTier && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-tier-title"
+        >
+          <form onSubmit={handleCreateTier} className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="new-tier-title" className="text-lg font-semibold">Nouveau tiers</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Ajoutez-le pour le sélectionner sur les prochaines lignes.</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={closeNewTier} title="Annuler">
+                <X aria-hidden="true" />
+                <span className="sr-only">Annuler</span>
+              </Button>
+            </div>
+
+            <div className="grid gap-4">
+              <label className="grid gap-1.5 text-sm font-medium">
+                Nom
+                <input
+                  autoFocus
+                  className="h-9 rounded-md border bg-transparent px-3 outline-none focus:ring-2 focus:ring-ring"
+                  value={tierName}
+                  onChange={(event) => setTierName(event.target.value)}
+                  placeholder="Ex. Client ABC"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                Préfixe du compte
+                <input
+                  inputMode="numeric"
+                  className="h-9 rounded-md border bg-transparent px-3 outline-none focus:ring-2 focus:ring-ring"
+                  value={tierPrefix}
+                  onChange={(event) => setTierPrefix(event.target.value)}
+                  placeholder="Ex. 3421"
+                />
+              </label>
+              {tierError && <p className="text-sm text-destructive">{tierError}</p>}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeNewTier}>Annuler</Button>
+              <Button type="submit">Ajouter le tiers</Button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }

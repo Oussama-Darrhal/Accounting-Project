@@ -138,6 +138,19 @@ export default function SaisieComptable() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => {
+              setEnlarged(false);
+              setDocumentMode(null);
+            }}
+            disabled={reading}
+            title="Choisir une nouvelle pièce"
+          >
+            <FileUp aria-hidden="true" />
+            Changer de pièce
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setSwapped((value) => !value)}
             aria-pressed={swapped}
             title="Inverser les panneaux"

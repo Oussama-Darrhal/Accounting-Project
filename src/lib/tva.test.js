@@ -132,4 +132,15 @@ describe("hydrateLineAmounts", () => {
     assert.equal(amounts.ht, "100,00");
     assert.equal(amounts.ttc, "120,00");
   });
+
+  it("keeps an explicit 10 % TTC even if the line still shows 20 %", () => {
+    const amounts = hydrateLineAmounts({
+      ht: "17409,09",
+      ttc: "19150,00",
+      tva: "20",
+      compte: "6125",
+    });
+    assert.equal(amounts.ht, "17409,09");
+    assert.equal(amounts.ttc, "19150,00");
+  });
 });

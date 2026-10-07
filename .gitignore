@@ -1,6 +1,10 @@
 node_modules
 dist
 *.local
+public/tesseract/
+public/tesseract-core/
+public/tessdata/
+public/pdf.worker.min.mjs
 backend/vendor
 backend/.env
 backend/node_modules

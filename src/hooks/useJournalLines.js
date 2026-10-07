@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toCents } from "@/lib/utils";
-import { hydrateLineAmounts, syncInvoiceTax } from "@/lib/tva";
+import { applyPostedAmounts, hydrateLineAmounts, syncInvoiceTax } from "@/lib/tva";
 import { useAccountingStore } from "@/stores/useAccountingStore";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 
@@ -60,10 +60,13 @@ function restoreLine(line) {
     if (line?.[field] == null || line[field] === "") return;
     restored[field] = asAmountString(line[field]);
   });
+  if (toCents(restored.ht) && toCents(restored.ttc)) {
+    return applyPostedAmounts(restored);
+  }
   const amounts = hydrateLineAmounts({ ...line, ...restored });
   restored.ht = amounts.ht;
   restored.ttc = amounts.ttc;
-  return restored;
+  return applyPostedAmounts(restored);
 }
 
 function readLegacyDraft() {

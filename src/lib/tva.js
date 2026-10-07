@@ -112,6 +112,9 @@ export function hydrateLineAmounts(line) {
   let ttc = toCents(line?.ttc);
   const vat = toCents(line?.montant_tva);
   if (!ttc && (ht || vat)) ttc = ht + vat;
+  if (ht && ttc) {
+    return { ht: formatAmountInput(ht), ttc: formatAmountInput(ttc) };
+  }
   if (ht || ttc) {
     if (!ht && ttc) ht = htFromTtcCents(ttc, rate);
     if (!ttc && ht) ttc = ttcFromHtCents(ht, rate);

@@ -4,6 +4,7 @@ import { CircleCheck, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
 import { EntryGrid } from "@/components/saisie/EntryGrid";
+import { InvoiceSplitHint } from "@/components/saisie/InvoiceSplitHint";
 import { SaveButton } from "@/components/saisie/SaveButton";
 import { hasAmount } from "@/hooks/useJournalLines";
 import { formatCurrency } from "@/lib/utils";
@@ -91,6 +92,7 @@ export function EntryForm({ journal }) {
       </div>
 
       <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col p-3">
+        <InvoiceSplitHint lines={journalLines} />
         <EntryGrid
           lines={journalLines}
           totals={totals}

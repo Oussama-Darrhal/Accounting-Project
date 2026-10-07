@@ -8,10 +8,12 @@ import { SaisieToolbar } from "@/components/saisie/SaisieToolbar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { useJournalLines } from "@/hooks/useJournalLines";
+import { isInvoiceFile } from "@/lib/invoiceFiles";
 import { parseInvoiceText } from "@/lib/invoiceParse";
 import { cn } from "@/lib/utils";
 import { fetchJournalEntry } from "@/services/journalApi";
 import { useAccountingStore } from "@/stores/useAccountingStore";
+import { useCompanyStore } from "@/stores/useCompanyStore";
 
 export default function SaisieComptable() {
   const [searchParams] = useSearchParams();
@@ -76,12 +78,11 @@ export default function SaisieComptable() {
 
   const ingestFile = async (file) => {
     if (!file || reading) return;
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (!isPdf) {
+    if (!isInvoiceFile(file)) {
       toast({
         variant: "error",
         title: "Format non pris en charge",
-        description: "Déposez une facture au format PDF.",
+        description: "Déposez une facture PDF ou une image (PNG, JPG, WEBP).",
       });
       return;
     }
@@ -89,16 +90,17 @@ export default function SaisieComptable() {
     setReading(true);
     setUploadedFile(file);
     try {
-      const { extractPdfText } = await import("@/lib/pdfText");
-      const text = await extractPdfText(file);
-      const parsed = parseInvoiceText(text);
+      const { extractInvoiceText } = await import("@/lib/extractInvoice");
+      const text = await extractInvoiceText(file);
+      const company = useCompanyStore.getState().currentCompany();
+      const parsed = parseInvoiceText(text, { company });
       if (!parsed.ok) {
         toast({ variant: "warning", title: "Saisie manuelle", description: parsed.reason, duration: 8000 });
       } else {
         journal.replaceLines(parsed.lines);
         toast({
           variant: parsed.warnings.length ? "warning" : "success",
-          title: "Écriture préremplie depuis le PDF",
+          title: "Écriture préremplie depuis la facture",
           description: [parsed.summary, ...parsed.warnings].join(" "),
           duration: parsed.warnings.length ? 9000 : 6000,
         });
@@ -110,7 +112,7 @@ export default function SaisieComptable() {
         title: protectedPdf ? "PDF protégé" : "Lecture impossible",
         description: protectedPdf
           ? "Ce PDF demande un mot de passe. Saisissez l'écriture à la main."
-          : "Ce PDF n'a pas pu être analysé. La pièce reste affichée pour une saisie manuelle.",
+          : "Ce document n'a pas pu être analysé. La pièce reste affichée pour une saisie manuelle.",
         duration: 8000,
       });
     } finally {
@@ -195,8 +197,8 @@ export default function SaisieComptable() {
               <Button type="button" variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => fileInputRef.current?.click()} disabled={reading}>
                 <FileUp aria-hidden="true" />
                 <span>
-                  <span className="block font-semibold">Ajouter un PDF</span>
-                  <span className="mt-1 block whitespace-normal text-xs font-normal text-muted-foreground">La facture s'affiche et les lignes se remplissent toutes seules.</span>
+                  <span className="block font-semibold">Ajouter une facture</span>
+                  <span className="mt-1 block whitespace-normal text-xs font-normal text-muted-foreground">PDF ou image (PNG, JPG) : la facture s'affiche et les lignes se remplissent.</span>
                 </span>
               </Button>
             </div>
@@ -233,7 +235,13 @@ export default function SaisieComptable() {
         {panels}
       </div>
 
-      <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" className="sr-only" onChange={handleFileChange} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+        className="sr-only"
+        onChange={handleFileChange}
+      />
     </>
   );
 }

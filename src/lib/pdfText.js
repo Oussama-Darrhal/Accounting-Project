@@ -1,7 +1,6 @@
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { itemsToText } from "@/lib/pdfItems";
-
-GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+import "@/lib/pdfWorker";
 
 /** Extracts the selectable text of a PDF file. Scanned pages come back empty. */
 export async function extractPdfText(file) {

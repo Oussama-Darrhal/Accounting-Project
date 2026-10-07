@@ -56,8 +56,8 @@ export async function ocrFile(file) {
 }
 
 export async function ocrPdfFile(file) {
-  const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  await import("@/lib/pdfWorker");
 
   const data = new Uint8Array(await file.arrayBuffer());
   const task = getDocument({ data, verbosity: 0 });

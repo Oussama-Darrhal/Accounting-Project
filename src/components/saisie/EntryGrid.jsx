@@ -276,11 +276,11 @@ export function EntryGrid({ lines, totals, onChange, onAdd, onRemove, tiersOptio
       </div>
 
       <p id="tva-help" className="mt-2 max-w-4xl text-xs leading-relaxed text-muted-foreground">
-        <span className="font-medium text-foreground">HT</span> = hors taxes (base).{" "}
-        <span className="font-medium text-foreground">TVA</span> = le taux (20, 14, 10, 7 ou 0 %). Le montant sous le taux
-        est la taxe (TTC − HT). <span className="font-medium text-foreground">TTC</span> = HT + taxe. Changer le taux
-        garde le TTC et recalcule le HT. Le débit ou le crédit suit le compte : HT pour les classes 6/7, taxe pour
-        3455/4455, TTC pour les tiers.
+        Une facture n'est pas une seule ligne : <span className="font-medium text-foreground">HT</span> (achat),{" "}
+        <span className="font-medium text-foreground">TVA</span> (la taxe) et <span className="font-medium text-foreground">TTC</span>{" "}
+        (ce que vous payez) forment 3 lignes qui s'équilibrent. HT / TVA / TTC sont le détail de la pièce, répété ; le TTC
+        de la facture est le crédit fournisseur, pas la somme des colonnes TTC. Changer le taux garde le TTC et recalcule le
+        HT.
       </p>
 
       <Button type="button" variant="ghost" size="sm" onClick={onAdd} className="mt-2 self-start">

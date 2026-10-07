@@ -1,9 +1,10 @@
 import { todayISO } from "./dateRange.js";
+import { parseFrenchAmountWords } from "./frenchAmountWords.js";
 
 const KNOWN_RATES = [20, 14, 10, 7, 0];
 
-/** A monetary token with two decimals, or a bare integer when OCR dropped the comma. */
-const MONEY = String.raw`(\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d{2})|\d{1,3}(?:\.\d{3})+(?:,\d{2})|\d{1,3}(?:,\d{3})+(?:\.\d{2})|\d+[.,]\d{2}|\d{4,})`;
+/** A monetary token with two decimals, grouped thousands, or a bare integer when OCR dropped the comma. */
+const MONEY = String.raw`(\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d{2})?|\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+[.,]\d{2}|\d{4,})`;
 const CURRENCY = String.raw`(?:\s*(?:dhs?|mad|dh|€))?`;
 const DATE_TOKEN = String.raw`(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{4}-\d{2}-\d{2})`;
 const MONTH_TOKEN = String.raw`(?:janvier|janv\.?|fevrier|fevr\.?|mars|avril|avr\.?|mai|juin|juillet|juil\.?|aout|aou\.?|septembre|sept\.?|octobre|oct\.?|novembre|nov\.?|decembre|dec\.?)`;
@@ -229,7 +230,7 @@ function pickAmounts(text, rates) {
     ...labeledMoney(String.raw`montant\s*tva(?:\s*\(?\s*\d{1,2}\s*%\s*\)?)?`, { weight: 2 }),
     ...labeledMoney(String.raw`tva\s*\(?\s*\d{1,2}\s*%\s*\)?`, { weight: 2 }),
   ]);
-  const ttc = collectAmounts(text, [
+  let ttc = collectAmounts(text, [
     ...labeledMoney(String.raw`montant\s+total\s*t\.?\s*t\.?\s*c\.?`, { weight: 5 }),
     ...labeledMoney(String.raw`net\s*a\s*payer`, { weight: 4 }),
     ...labeledMoney(String.raw`total\s*t\.?\s*t\.?\s*c\.?`, { weight: 4 }),
@@ -239,6 +240,12 @@ function pickAmounts(text, rates) {
     ...labeledMoney(String.raw`toutes\s+taxes\s+comprises`, { weight: 1, reverseWeight: 0 }),
     ...labeledMoney(String.raw`total\s*general`, { weight: 1 }),
   ]);
+  const spokenTtc = parseFrenchAmountWords(text);
+  if (spokenTtc != null) {
+    ttc = uniqueAmounts([...ttc, { amount: spokenTtc, weight: 6, index: 0 }]);
+  }
+  const impliedTtc = implyTtcFromHt(text, ht, ttc);
+  if (impliedTtc.length) ttc = uniqueAmounts([...ttc, ...impliedTtc]);
 
   const ttcCents = new Set(ttc.map((hit) => toCents(hit.amount)));
   const htCents = new Set(ht.map((hit) => toCents(hit.amount)));
@@ -282,9 +289,14 @@ function scoreTriplet(htHit, tvaHit, ttcHit, rate) {
     const implied = ttcCents - htCents;
     if (implied >= 0) {
       score += 15;
+      const knownMatch = KNOWN_RATES.some((known) => {
+        if (known <= 0) return false;
+        return Math.abs(Math.round((htCents * known) / 100) - implied) <= 2;
+      });
+      if (knownMatch) score += 35;
       if (rate != null) {
         const expected = Math.round((htCents * rate) / 100);
-        if (Math.abs(expected - implied) <= 2) score += 35;
+        if (Math.abs(expected - implied) <= 2) score += 10;
       }
     }
   } else if (ttcCents != null && tvaCents != null && ttcCents > tvaCents) {
@@ -296,9 +308,33 @@ function scoreTriplet(htHit, tvaHit, ttcHit, rate) {
   return score;
 }
 
+/**
+ * When the TTC label is missing, keep an amount that equals HT at a Moroccan rate
+ * (17 409,09 at 10 % → 19 150) instead of rebuilding TTC at 20 %.
+ */
+function implyTtcFromHt(text, htHits, existingTtc) {
+  if (!htHits.length) return [];
+  const already = new Set(existingTtc.map((hit) => toCents(hit.amount)));
+  const loose = collectAmounts(text, [{ weight: 2, pattern: MONEY }]);
+  const extras = [];
+  for (const htHit of htHits.slice(0, 4)) {
+    const htCents = toCents(htHit.amount);
+    for (const rate of KNOWN_RATES) {
+      if (rate <= 0) continue;
+      const expected = Math.round((htCents * (100 + rate)) / 100);
+      if (already.has(expected)) continue;
+      const hit = loose.find(
+        (candidate) => Math.abs(toCents(candidate.amount) - expected) <= 2 && toCents(candidate.amount) !== htCents
+      );
+      if (hit) extras.push({ amount: hit.amount, weight: 4, index: hit.index });
+    }
+  }
+  return extras;
+}
+
 function findRates(text) {
   const rates = [];
-  const expression = /(?:tva|taux)[^\d%]{0,18}(20|14|10|7|0)\s*%/gi;
+  const expression = /(?:tva|taux|total)[^\d%]{0,18}(20|14|10|7|0)\s*%/gi;
   let match = expression.exec(text);
   while (match) {
     rates.push(Number(match[1]));
@@ -323,6 +359,17 @@ function reconcile(extracted, rates, exempt) {
   if (rate === 0 && tva != null && tva > 0) rate = null;
   if (tva == null && ht != null && ttc != null && ttc >= ht) {
     tva = (toCents(ttc) - toCents(ht)) / 100;
+  }
+
+  if (ht != null && ttc != null && ht > 0 && ttc >= ht) {
+    const actual = ((ttc - ht) / ht) * 100;
+    const implied = closestRate(actual);
+    if (Math.abs(actual - implied) <= 1) {
+      if (rate != null && rate !== implied) {
+        warnings.push(`Taux ${rate} % lu sur la pièce, mais HT et TTC correspondent à ${implied} %.`);
+      }
+      rate = implied;
+    }
   }
 
   if (rate == null && ht != null && tva != null && ht > 0) {
@@ -486,9 +533,24 @@ function accountsFor(kind, text) {
 
 function buildLines({ date, number, kind, creditNote, rate, htCents, tvaCents, ttcCents, accounts, journal, libelle, tiers }) {
   const details = { date, number, rate, journal, libelle, tiers, counterparty: accounts.counterparty, htCents, ttcCents };
-  const product = entryLine(details, accounts.product, kind === "sale" ? 0 : htCents, kind === "sale" ? htCents : 0);
-  const vat = entryLine(details, accounts.vat, kind === "sale" ? 0 : tvaCents, kind === "sale" ? tvaCents : 0);
-  const counterparty = entryLine(details, accounts.counterparty, kind === "sale" ? ttcCents : 0, kind === "sale" ? 0 : ttcCents);
+  const product = entryLine(
+    { ...details, libelle: `${libelle} · HT` },
+    accounts.product,
+    kind === "sale" ? 0 : htCents,
+    kind === "sale" ? htCents : 0
+  );
+  const vat = entryLine(
+    { ...details, libelle: `TVA ${rate} %${number ? ` · ${number}` : ""}` },
+    accounts.vat,
+    kind === "sale" ? 0 : tvaCents,
+    kind === "sale" ? tvaCents : 0
+  );
+  const counterparty = entryLine(
+    { ...details, libelle: kind === "sale" ? `${libelle} · TTC` : `Fournisseur · TTC` },
+    accounts.counterparty,
+    kind === "sale" ? ttcCents : 0,
+    kind === "sale" ? 0 : ttcCents
+  );
   const lines = kind === "sale" ? [counterparty, product] : [product];
   if (tvaCents > 0) lines.push(vat);
   if (kind !== "sale") lines.push(counterparty);

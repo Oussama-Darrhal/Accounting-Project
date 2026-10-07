@@ -41,9 +41,9 @@ describe("parseInvoiceText", () => {
     assert.deepEqual(
       result.lines.map((line) => [line.journal, line.libelle, line.compte, line.tiers, line.debit, line.credit]),
       [
-        ["ACH", "Achat FF-0342", "6111", "", "12500,00", ""],
-        ["ACH", "Achat FF-0342", "3455", "", "2500,00", ""],
-        ["ACH", "Achat FF-0342", "4411", "4411 - Sud Import", "", "15000,00"],
+        ["ACH", "Achat FF-0342 · HT", "6111", "", "12500,00", ""],
+        ["ACH", "TVA 20 % · FF-0342", "3455", "", "2500,00", ""],
+        ["ACH", "Fournisseur · TTC", "4411", "4411 - Sud Import", "", "15000,00"],
       ]
     );
     balanced(result);
@@ -68,7 +68,8 @@ describe("parseInvoiceText", () => {
     assert.equal(result.kind, "sale");
     assert.equal(result.rate, 14);
     assert.equal(result.lines[0].journal, "VT");
-    assert.equal(result.lines[0].libelle, "Vente FA-2026-002");
+    assert.equal(result.lines[0].libelle, "Vente FA-2026-002 · TTC");
+    assert.equal(result.lines[1].libelle, "Vente FA-2026-002 · HT");
     assert.equal(result.lines[0].tiers, "3421 - Rif Distribution");
     assert.equal(result.lines[0].compte, "3421");
     assert.equal(result.lines[0].debit, "11400,00");
@@ -224,7 +225,9 @@ describe("parseInvoiceText", () => {
     assert.equal(result.tvaCents, 174091);
     assert.equal(result.ttcCents, 1915000);
     assert.equal(result.lines[0].compte, "6125");
-    assert.equal(result.lines[0].libelle, "Service Transfers");
+    assert.equal(result.lines[0].libelle, "Service Transfers · HT");
+    assert.equal(result.lines[1].libelle, "TVA 10 % · 13");
+    assert.equal(result.lines[2].libelle, "Fournisseur · TTC");
     assert.equal(result.lines[0].debit, "17409,09");
     assert.equal(result.lines[1].compte, "3455");
     assert.equal(result.lines[1].debit, "1740,91");
@@ -277,6 +280,50 @@ describe("parseInvoiceText", () => {
     assert.equal(result.htCents, 140000);
     assert.equal(result.ttcCents, 168000);
     assert.equal(result.lines.at(-1).tiers, "4411 - Atlas Cars");
+    balanced(result);
+  });
+
+  it("keeps Gettravel TTC 19 150 from the spoken total instead of rebuilding 20 890,91 at 20 %", () => {
+    const result = parseInvoiceText(
+      `
+      FACTURE N° 13
+      GETTRAVEL&TOURS SARLAU
+      CLIENT : ASTROLABE VOYAGE
+      Service Transfers
+      TOTAL HT 17 409,09 DHs
+      Arrêtée la présente facture à la somme de : Dix-neuf mille cent cinquante dirhams
+      `,
+      { company: { name: "Astrolabe Voyage" } }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.rate, 10);
+    assert.equal(result.htCents, 1740909);
+    assert.equal(result.tvaCents, 174091);
+    assert.equal(result.ttcCents, 1915000);
+    assert.notEqual(result.ttcCents, 2089091);
+    assert.equal(result.lines.at(-1).credit, "19150,00");
+    assert.equal(result.lines[0].ttc, "19150,00");
+    balanced(result);
+  });
+
+  it("recovers TTC 19 150 when the label is missing but the amount sits next to HT at 10 %", () => {
+    const result = parseInvoiceText(
+      `
+      Facture n° 13
+      GETTRAVEL&TOURS SARLAU
+      CLIENT : ASTROLABE VOYAGE
+      Service Transfers
+      TOTAL HT 17 409,09 DHs
+      19 150,00 DHs
+      `,
+      { company: { name: "Astrolabe Voyage" } }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.rate, 10);
+    assert.equal(result.ttcCents, 1915000);
+    assert.notEqual(result.ttcCents, 2089091);
     balanced(result);
   });
 });

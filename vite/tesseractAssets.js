@@ -26,6 +26,10 @@ export function copyTesseractAssets() {
     join(root, "node_modules/@tesseract.js-data/fra/4.0.0_best_int/fra.traineddata.gz"),
     join(langdir, "fra.traineddata.gz")
   );
+  copyFileSync(
+    join(root, "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs"),
+    join(root, "public", "pdf.worker.min.mjs")
+  );
 }
 
 export function tesseractPublicAssets() {

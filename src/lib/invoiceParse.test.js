@@ -152,4 +152,132 @@ describe("parseInvoiceText", () => {
     const result = parseInvoiceText("   ");
     assert.equal(result.ok, false);
   });
+
+  it("fills a CBF-style PDF with French month, Base HT and the issuer as tiers", () => {
+    const result = parseInvoiceText(
+      `
+      Casablanca le : 03 Août 2026 Société : JONY TRAVEL
+      ICE : 002257575000081
+      Objet : Facture N° 016 / 2026
+      Désignation Quantité Prix U Total HT
+      Serrure avec clé de porte vitree inox noir 304 2 450,00 900,00
+      Inatsllation et test F F 500,00
+      Base HT : 1400,00
+      Arrêter la présente facture à la somme de :
+      TVA 20 % : 280,00
+      Mille Six Cent Quatre-Vingts Dirhams
+      Montant total TTC : 1680,00
+      Toutes Taxes Comprises
+      SARL au capital de 100 000.00 10 Rue Charada RDC Derb Loubila Bourgogne 202000 Casablanca Maroc
+      RC : 617555 - ICE : 003472126000091
+      contact@CBF.ma - WWW.CBF.ma
+      `,
+      { company: { name: "Jony Travel" } }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.kind, "purchase");
+    assert.equal(result.number, "016/2026");
+    assert.equal(result.date, "2026-08-03");
+    assert.equal(result.rate, 20);
+    assert.equal(result.htCents, 140000);
+    assert.equal(result.tvaCents, 28000);
+    assert.equal(result.ttcCents, 168000);
+    assert.equal(result.lines[0].compte, "6111");
+    assert.equal(result.lines[0].debit, "1400,00");
+    assert.equal(result.lines[1].compte, "3455");
+    assert.equal(result.lines[1].debit, "280,00");
+    assert.equal(result.lines[2].compte, "4411");
+    assert.equal(result.lines[2].credit, "1680,00");
+    assert.match(result.lines[2].tiers, /CBF/i);
+    assert.equal(result.warnings.some((warning) => /vente/i.test(warning)), false);
+    balanced(result);
+  });
+
+  it("fills a Gettravel transfer invoice from OCR or a photo, even with an invalid calendar date", () => {
+    const result = parseInvoiceText(
+      `
+      FACTURE N° 13
+      GETTRAVEL&TOURS SARLAU
+      Tél : +212 601 75 41 59
+      DATE : 31/06/2026
+      CLIENT : ASTROLABE VOYAGE
+      ICE : 003508668000044
+      Désignation Quantité Montant
+      Départ : Aéroport Rabat-Salé → Destination Rabat ville.
+      Service Transfers
+      Du 01/06/2026 au 30/06/2026
+      TOTAL HT 17 409,09 DHs
+      TVA 10% 1 740,91 DHs
+      TOTAL TTC 19 150,00 DHs
+      Patente : 25114256 - IF : 66996371 - ICE : 003732063001033
+      `,
+      { company: { name: "Astrolabe Voyage", ice: "003508668000044" } }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.kind, "purchase");
+    assert.equal(result.number, "13");
+    assert.equal(result.date, "2026-06-30");
+    assert.equal(result.rate, 10);
+    assert.equal(result.htCents, 1740909);
+    assert.equal(result.tvaCents, 174091);
+    assert.equal(result.ttcCents, 1915000);
+    assert.equal(result.lines[0].compte, "6125");
+    assert.equal(result.lines[0].libelle, "Service Transfers");
+    assert.equal(result.lines[0].debit, "17409,09");
+    assert.equal(result.lines[1].compte, "3455");
+    assert.equal(result.lines[1].debit, "1740,91");
+    assert.equal(result.lines[2].compte, "4411");
+    assert.equal(result.lines[2].credit, "19150,00");
+    assert.match(result.lines[2].tiers, /Gettravel/i);
+    assert.doesNotMatch(result.lines[2].tiers, /Astrolabe/i);
+    assert.equal(
+      result.warnings.some((warning) => /31\/06\/2026/.test(warning)),
+      true
+    );
+    balanced(result);
+  });
+
+  it("recovers Gettravel amounts when OCR drops spaces, commas and misreads TTC", () => {
+    const result = parseInvoiceText(
+      `
+      FACTURE N° 13
+      GETTRAVEL&TOURS SARLAU
+      DATE: 31/06/2026
+      CLIENT : ASTROLABE VOYAGE
+      Service Transfers
+      TOTAL HT | 1740909 Ds
+      TVA 10% | 174091DHs
+      TOTALTIC | 19150,00 DHs
+      `,
+      { company: { name: "Astrolabe Voyage" } }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.htCents, 1740909);
+    assert.equal(result.tvaCents, 174091);
+    assert.equal(result.ttcCents, 1915000);
+    assert.equal(result.lines[0].compte, "6125");
+    assert.match(result.lines.at(-1).tiers, /Gettravel/i);
+    balanced(result);
+  });
+
+  it("still reads totals when OCR puts the amount before the label", () => {
+    const result = parseInvoiceText(`
+      Facture fournisseur N° FF-88
+      Date : 02/02/2026
+      Fournisseur : Atlas Cars
+      1 400,00 Base HT
+      280,00 TVA 20 %
+      1 680,00 Montant total TTC
+    `);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.htCents, 140000);
+    assert.equal(result.ttcCents, 168000);
+    assert.equal(result.lines.at(-1).tiers, "4411 - Atlas Cars");
+    balanced(result);
+  });
 });
+

@@ -3,6 +3,7 @@ import { Download, FileText, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isLineBlank } from "@/hooks/useJournalLines";
 import { downloadBlob } from "@/lib/download";
+import { isImageFile } from "@/lib/invoiceFiles";
 
 const LiveInvoicePDF = lazy(() => import("@/components/saisie/LiveInvoicePDF"));
 
@@ -65,7 +66,15 @@ export function InvoiceViewer({ journalLines, uploadedFile }) {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col bg-slate-200 p-2">
-        {uploadedFileUrl ? (
+        {uploadedFileUrl && isImageFile(uploadedFile) ? (
+          <div className="flex min-h-[280px] flex-1 items-start justify-center overflow-auto rounded-md bg-white md:min-h-0">
+            <img
+              alt={`Lecture de ${uploadedFile.name}`}
+              src={uploadedFileUrl}
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+        ) : uploadedFileUrl ? (
           <iframe
             title={`Lecture de ${uploadedFile.name}`}
             src={uploadedFileUrl}
